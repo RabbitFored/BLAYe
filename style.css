@@ -144,6 +144,42 @@
   --container-xl: 1280px;
 }
 
+/* Theme Switcher Styles */
+.theme-switcher {
+  display: flex;
+  gap: 8px;
+  background-color: var(--color-secondary);
+  padding: 6px;
+  border-radius: var(--radius-base);
+  width: fit-content;
+}
+
+.theme-btn {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.theme-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.theme-btn.active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 /* Dark mode colors */
 @media (prefers-color-scheme: dark) {
   :root {

@@ -723,23 +723,54 @@
                     </div>
 
                     <div class="settings-section">
-                        <h3>System Preferences</h3>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Auto Backup</label>
-                                <select id="auto-backup" class="form-control">
-                                    <option value="daily">Daily</option>
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="disabled">Disabled</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Low Stock Alert</label>
-                                <input type="number" id="low-stock-threshold" class="form-control" value="10">
-                            </div>
-                        </div>
-                    </div>
+    <h3>System Preferences</h3>
+    <div class="settings-list">
+        <div class="setting-item">
+            <div class="setting-item-label">
+                <h4>Appearance</h4>
+                <p>Choose how the application looks.</p>
+            </div>
+            <div class="setting-item-control">
+                <div class="theme-switcher">
+                    <button class="theme-btn" data-theme="light" title="Light Mode">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">...</svg>
+                        <span>Light</span>
+                    </button>
+                    <button class="theme-btn" data-theme="dark" title="Dark Mode">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">...</svg>
+                        <span>Dark</span>
+                    </button>
+                    <button class="theme-btn" data-theme="system" title="System Default">
+                                               <span>System</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-item-label">
+                <h4>Auto Backup</h4>
+                <p>Set the frequency for automatic data backups.</p>
+            </div>
+            <div class="setting-item-control">
+                <select id="auto-backup" class="form-control">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="disabled">Disabled</option>
+                </select>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-item-label">
+                <h4>Low Stock Alert</h4>
+                <p>Set the stock quantity threshold for low-stock alerts.</p>
+            </div>
+            <div class="setting-item-control">
+                <input type="number" id="low-stock-threshold" class="form-control" value="10">
+            </div>
+        </div>
+    </div>
+</div>
                 <div class="settings-section">
     <h3>Data Management</h3>
     <div class="form-group">
