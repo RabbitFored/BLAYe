@@ -1761,7 +1761,7 @@ class App {
       // FIXED: GSTIN fetch button
       const fetchGstinBtn = document.getElementById('fetch-gstin-data');
       if (fetchGstinBtn) {
-        fetchGstinBtn.addEventListener('click', CustomerController.fetchGstinData);
+        fetchGstinBtn.addEventListener('click',  () => CustomerController.fetchGstinData());
       }
 
       // FIXED: Settings save
@@ -1981,17 +1981,47 @@ class CustomerController {
 
   static async openModal(customerId = null) {
     const modal = document.getElementById('customer-modal');
-    if (modal) modal.classList.remove('hidden');
+    if (!modal) return;
 
-    //  Populate the state dropdown every time the modal opens
+    // Reset and show the modal
+    document.getElementById('customer-form').reset();
+    document.getElementById('captcha-section').classList.add('hidden');
+    modal.classList.remove('hidden');
+
+    // Populate the state dropdown
     SettingsController.populateStates('customer-state');
     
-    // Fetch a captcha every time the modal opens
-    this._fetchAndDisplayCaptcha();
+    // Set up the listener to show the captcha on demand
+    const gstinInput = document.getElementById('customer-gstin');
+    const captchaSection = document.getElementById('captcha-section');
     
+    // FIXED: The handler now correctly uses `event.currentTarget`
+    const gstinInputHandler = (event) => {
+      // `event.currentTarget` always refers to the element the listener is attached to
+      if (event.currentTarget.value.length > 0) {
+        if (captchaSection.classList.contains('hidden')) {
+          captchaSection.classList.remove('hidden');
+          this._fetchAndDisplayCaptcha(); // Fetch captcha only when it becomes visible
+        }
+      } else {
+        captchaSection.classList.add('hidden');
+      }
+    };
+    
+    // Use a fresh listener to avoid duplicates from previous modal openings
+    const newGstinInput = gstinInput.cloneNode(true);
+    gstinInput.parentNode.replaceChild(newGstinInput, gstinInput);
+    newGstinInput.addEventListener('input', gstinInputHandler);
+
+    // Load data if we are editing, otherwise set title for adding
     if (customerId) {
+      document.getElementById('customer-modal-title').textContent = 'Edit Customer';
       try {
+      
+
         const customer = await db.customers.get(customerId);
+
+                // ... (loading customer data) ...
         document.getElementById('customer-name').value = customer.name || '';
         document.getElementById('customer-gstin').value = customer.gstin || '';
         document.getElementById('customer-aadhar').value = customer.aadhar || '';
@@ -2001,13 +2031,20 @@ class CustomerController {
         document.getElementById('customer-city').value = customer.city || '';
         document.getElementById('customer-state').value = customer.state_code || '';
         document.getElementById('customer-pincode').value = customer.pincode || '';
+
+        const currentGstinInput = document.getElementById('customer-gstin');
+        currentGstinInput.value = customer.gstin || '';
+
+        // Manually dispatch an 'input' event to trigger the captcha logic
+        currentGstinInput.dispatchEvent(new Event('input'));
+
         appState.editingRecord = customer;
+
       } catch (error) {
         console.error('Failed to load customer:', error);
       }
     } else {
       document.getElementById('customer-modal-title').textContent = 'Add Customer';
-      document.getElementById('customer-form').reset();
       appState.editingRecord = null;
     }
   }
@@ -2038,8 +2075,11 @@ class CustomerController {
       
       const data = await response.json();
       console.log('GSTIN API response:', data);
-      if (data.error || data.errorDesc || data.sts === 'CAN') {
-        NotificationService.error(data.errorDesc || data.error || 'Invalid GSTIN/Captcha or GSTIN is cancelled.');
+      if (data.error || data.errorDesc || data.errorCode || data.sts === 'CAN') {
+        // Use a more generic but helpful error message for all API failures
+        NotificationService.error('Invalid GSTIN or Captcha. Please try again.');
+        this._fetchAndDisplayCaptcha(); 
+        document.getElementById('customer-captcha').value = '';
       } else {
         // FIXED: Mapped the new API response keys to the form fields.
         document.getElementById('customer-name').value = data.tradeNam || data.lgnm || '';
@@ -2056,6 +2096,7 @@ class CustomerController {
         }
 
         NotificationService.success('Customer data fetched successfully!');
+        document.getElementById('captcha-section').classList.add('hidden');
       }
     } catch (error) {
       console.error('GSTIN fetch failed:', error);
@@ -2063,8 +2104,8 @@ class CustomerController {
     } finally {
       LoadingService.hide();
       // Get a new captcha for the next attempt
-      this._fetchAndDisplayCaptcha();
-      document.getElementById('customer-captcha').value = '';
+      //this._fetchAndDisplayCaptcha();
+      //document.getElementById('customer-captcha').value = '';
     }
   }
 
@@ -2096,8 +2137,8 @@ class CustomerController {
         //state: document.getElementById('customer-state').value.trim()
       };
 
-      if (!customerData.name || !customerData.phone) {
-        NotificationService.error('Name and phone are required');
+      if (!customerData.name) {
+        NotificationService.error('Customer Name is required');
         return;
       }
       // Check if we are editing an existing customer

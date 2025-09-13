@@ -798,7 +798,7 @@
         <button type="button" class="btn btn--outline" id="fetch-gstin-data">Fetch Data</button>
     </div>
     
-    <div id="captcha-section" class="form-grid" style="margin-top: 16px; align-items: flex-end;">
+    <div id="captcha-section" class="form-grid hidden" style="margin-top: 16px; align-items: flex-end;">
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Captcha</label>
             <div id="captcha-image-container" style="border: 1px solid var(--color-border); border-radius: var(--radius-base); height: 40px; display: flex; align-items: center; justify-content: center; background: #eee;">
@@ -807,7 +807,7 @@
             </div>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
-            <input type="text" id="customer-captcha" class="form-control" placeholder="Enter Captcha" required>
+            <input type="text" id="customer-captcha" class="form-control" placeholder="Enter Captcha">
         </div>
         <button type="button" class="btn btn--secondary btn--sm" id="refresh-captcha-btn" style="height: 40px;">Refresh</button>
     </div>
