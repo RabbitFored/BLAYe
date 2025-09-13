@@ -1485,6 +1485,36 @@ select.form-control {
 }
 
 /* Reports Grid */
+.report-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-card-border-inner);
+  padding: 0 var(--space-24);
+  background: var(--color-secondary);
+}
+.tab-link {
+  padding: var(--space-12) var(--space-20);
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* Overlap the container's border */
+}
+.tab-link:hover {
+  color: var(--color-text);
+}
+.tab-link.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+
 .reports-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
