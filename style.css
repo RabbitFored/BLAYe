@@ -2235,6 +2235,20 @@ select.form-control {
     color: black;
     background: white;
   }
+
+  #reports-page, #report-display, #report-display * {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  #report-display {
+    position: static !important;
+    border: none !important;
+  }
+  
+  .report-header {
+    display: none !important;
+  }
 }
 
 

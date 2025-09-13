@@ -71,7 +71,21 @@ const appState = new AppState();
 
 // Utility Functions
 class Utils {
-
+  static formatCurrencyCompact(num) {
+    if (num === null || num === undefined) return '₹0';
+    const amount = Number(num);
+    
+    // For numbers in crores
+    if (Math.abs(amount) >= 10000000) {
+      return '₹' + (amount / 10000000).toFixed(2) + ' Cr';
+    }
+    // For numbers in lakhs
+    if (Math.abs(amount) >= 100000) {
+      return '₹' + (amount / 100000).toFixed(2) + ' L';
+    }
+    // For smaller numbers, format with commas
+    return '₹' + amount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  }
   static amountInWords(num) {
     const amount = Math.round(num);
 
@@ -112,7 +126,14 @@ class Utils {
     return result.trim().replace(/\s+/g, ' ').split(' ').map(s => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
   }
 
-
+  static formatDateForInput(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   static formatCurrency(amount) {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -1107,6 +1128,113 @@ class PDFService {
       NotificationService.error('Failed to generate PDF. Please try again.');
     }
   }
+  // Method to generate a PDF for the Sales Report
+  static async generateSalesReportPDF(reportData) {
+    LoadingService.show('Creating PDF...');
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const company = appState.company || {};
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const leftMargin = 15;
+      const rightMargin = pageWidth - 15;
+      
+      // --- New Professional Header (adapted from Invoice) ---
+      let headerY = 15;
+      const lineSpacing = 5;
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text(company.name?.toUpperCase() || 'BLAYe', pageWidth / 2, headerY, { align: 'center' });
+      headerY += lineSpacing + 2;
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      const addressLine1 = company.address || '';
+      const addressLine2 = `${company.city || ''} ${company.pincode || ''} ${company.state || ''}`;
+      doc.text(addressLine1, pageWidth / 2, headerY, { align: 'center' });
+      headerY += lineSpacing;
+      doc.text(addressLine2, pageWidth / 2, headerY, { align: 'center' });
+      
+      headerY += 8;
+      doc.setLineWidth(0.2);
+      doc.line(leftMargin, headerY, rightMargin, headerY); // Top line
+      headerY += 5;
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('SALES REPORT', pageWidth / 2, headerY, { align: 'center', baseline: 'middle' });
+      headerY += 5;
+      doc.line(leftMargin, headerY, rightMargin, headerY); // Bottom line
+      
+      // --- Report-Specific Details ---
+      headerY += 8;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('Report Period:', leftMargin, headerY);
+      doc.setFont(undefined, 'normal');
+      doc.text(reportData.dateRange, leftMargin + 30, headerY);
+
+      // --- Report Summary ---
+      let summaryY = headerY + 10;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('Summary', leftMargin, summaryY);
+      doc.setFont(undefined, 'normal');
+      summaryY += 6;
+      reportData.summary.forEach(item => {
+        doc.text(item.label + ':', 15, summaryY);
+        let valueStr;
+        if (item.isCurrency) {
+          valueStr = (item.value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+          valueStr = item.value.toString();
+        }
+        doc.text(valueStr, rightMargin, summaryY, { align: 'right' });
+        summaryY += 7;
+      });
+      
+      // --- Main Data Table ---
+      const head = [['Invoice #', 'Date', 'Customer', 'Amount (INR)', 'Status']];
+      const body = [];
+      for(const invoice of reportData.invoices) {
+        const customer = await db.customers.get(invoice.customer_id);
+        body.push([
+          invoice.invoice_number,
+          Utils.formatDate(invoice.date),
+          customer?.name || 'N/A',
+          (invoice.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+          invoice.payment_status
+        ]);
+      }
+      
+      doc.autoTable({
+        head: head, body: body, startY: summaryY + 5,
+        theme: 'grid',
+        headStyles: { fillColor: [20, 30, 40], textColor: 255 }, // Dark header for reports
+        columnStyles: { 3: { halign: 'right' } },
+        didDrawPage: function (data) {
+          // --- Footer with Page Numbers ---
+          doc.setFontSize(8);
+          doc.setTextColor(100);
+          const pageCount = doc.internal.getNumberOfPages();
+
+          const dateStr = `Generated on: ${new Date().toLocaleDateString('en-IN')}`;
+          doc.text(dateStr, data.settings.margin.left, pageHeight - 10);
+
+          const pageNumStr = `Page ${data.pageNumber} of ${pageCount}`;
+          doc.text(pageNumStr, rightMargin, pageHeight - 10, { align: 'right' });
+        }
+      });
+      
+      const date = new Date().toISOString().split('T')[0];
+      doc.save(`Sales-Report-${date}.pdf`);
+
+    } catch (error) {
+      console.error('Failed to create report PDF:', error);
+      NotificationService.error('Could not create report PDF.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
 }
 
 
@@ -1237,21 +1365,21 @@ class DashboardController {
 
   static async updateStats() {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const todayStr = Utils.formatDateForInput(new Date());
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = Utils.formatDateForInput(yesterday);
 
-      const todayInvoices = await db.invoices.where('date').equals(today).toArray();
+      const todayInvoices = await db.invoices.where('date').equals(todayStr).toArray();
       const yesterdayInvoices = await db.invoices.where('date').equals(yesterdayStr).toArray();
 
       const todaySales = todayInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
       const yesterdaySales = yesterdayInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
       const todaySalesEl = document.getElementById('today-sales');
-      if (todaySalesEl) todaySalesEl.textContent = Utils.formatCurrency(todaySales);
+      if (todaySalesEl) todaySalesEl.textContent = Utils.formatCurrencyCompact(todaySales);
       
-      const salesTrend = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : 0;
+      const salesTrend = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales * 100) : (todaySales > 0 ? 100 : 0);
       const trendEl = document.getElementById('sales-trend');
       if (trendEl) {
         trendEl.textContent = (salesTrend >= 0 ? '+' : '') + salesTrend.toFixed(1) + '%';
@@ -1260,23 +1388,23 @@ class DashboardController {
 
       const thisMonth = new Date();
       const firstDay = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
+      
 
       const thisMonthInvoices = await db.invoices
         .where('date')
-        .between(firstDay.toISOString().split('T')[0], today)
+        .between(Utils.formatDateForInput(firstDay), todayStr, true, true)
         .toArray();
 
       const thisMonthRevenue = thisMonthInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-
       const monthlyRevenueEl = document.getElementById('monthly-revenue');
-      if (monthlyRevenueEl) monthlyRevenueEl.textContent = Utils.formatCurrency(thisMonthRevenue);
+      if (monthlyRevenueEl) monthlyRevenueEl.textContent = Utils.formatCurrencyCompact(thisMonthRevenue);
 
       const pendingInvoices = await db.invoices.where('payment_status').equals('pending').toArray();
       const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
       const pendingAmountEl = document.getElementById('pending-amount');
       const pendingCountEl = document.getElementById('pending-count');
-      if (pendingAmountEl) pendingAmountEl.textContent = Utils.formatCurrency(pendingAmount);
+      if (pendingAmountEl) pendingAmountEl.textContent = Utils.formatCurrencyCompact(pendingAmount);
       if (pendingCountEl) pendingCountEl.textContent = `${pendingInvoices.length} invoices`;
 
       const products = await db.products.toArray();
@@ -1299,27 +1427,36 @@ class DashboardController {
     if (!ctx) return;
 
     try {
-      //const period = 7;
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(endDate.getDate() - (period - 1));
 
-      const invoices = await db.invoices.toArray();
-      const salesData = [];
-      const labels = [];
+      const startDateStr = Utils.formatDateForInput(startDate);
+      const endDateStr = Utils.formatDateForInput(endDate);
 
+      // 1. More efficiently fetch only the invoices needed for the chart
+      const invoicesInRange = await db.invoices
+        .where('date')
+        .between(startDateStr, endDateStr, true, true)
+        .toArray();
+      
+      // 2. Pre-calculate the total sales for each day in a single pass
+      const salesByDay = {};
+      invoicesInRange.forEach(inv => {
+        salesByDay[inv.date] = (salesByDay[inv.date] || 0) + (inv.total_amount || 0);
+      });
+
+      const labels = [];
+      const dataArray = [];
+
+      // 3. Build the labels and data in a synchronized loop
       for (let i = 0; i < period; i++) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
+        const currentDay = new Date(startDate);
+        currentDay.setDate(startDate.getDate() + i);
+        const currentDayStr = Utils.formatDateForInput(currentDay);
         
-        labels.push(date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' }));
-        
-        const dayTotal = invoices
-          .filter(inv => inv.date === dateStr)
-          .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-        
-        salesData.push(dayTotal);
+        labels.push(currentDay.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' }));
+        dataArray.push(salesByDay[currentDayStr] || 0); // Use the pre-calculated total, or 0 if no sales
       }
 
       if (appState.charts.salesChart) {
@@ -1329,10 +1466,10 @@ class DashboardController {
       appState.charts.salesChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels,
+          labels: labels,
           datasets: [{
             label: 'Sales',
-            data: salesData,
+            data: dataArray,
             borderColor: '#1FB8CD',
             backgroundColor: 'rgba(31, 184, 205, 0.1)',
             borderWidth: 3,
@@ -1340,7 +1477,7 @@ class DashboardController {
             tension: 0.4,
             pointBackgroundColor: '#1FB8CD',
             pointBorderColor: '#1FB8CD',
-            pointRadius: 4,
+            pointRadius: period <= 30 ? 4 : 2,
             pointHoverRadius: 6
           }]
         },
@@ -1348,9 +1485,7 @@ class DashboardController {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: {
-              display: false
-            },
+            legend: { display: false },
             tooltip: {
               callbacks: {
                 label: function(context) {
@@ -1364,6 +1499,8 @@ class DashboardController {
               beginAtZero: true,
               ticks: {
                 callback: function(value) {
+                  if (value >= 10000000) return '₹' + (value/10000000) + ' Cr';
+                  if (value >= 100000) return '₹' + (value/100000) + ' L';
                   return Utils.formatCurrency(value);
                 }
               }
@@ -1371,7 +1508,6 @@ class DashboardController {
           }
         }
       });
-
     } catch (error) {
       console.error('Failed to load sales chart:', error);
     }
@@ -1719,7 +1855,7 @@ class App {
             await InventoryController.loadPage();
             break;
           case 'reports':
-            ReportController.loadPage();
+            await ReportController.loadPage(); 
             break;
           case 'settings':
             await SettingsController.loadPage();
@@ -2459,14 +2595,12 @@ class InvoiceController {
     }
     
     // Set dates
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('invoice-date');
-    if (dateInput) dateInput.value = today;
+    document.getElementById('invoice-date').value = Utils.formatDateForInput(new Date());
     
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
-    const dueDateInput = document.getElementById('invoice-due-date');
-    if (dueDateInput) dueDateInput.value = dueDate.toISOString().split('T')[0];
+    //const dueDate = new Date();
+    //dueDate.setDate(dueDate.getDate() + 30);
+    //const dueDateInput = document.getElementById('invoice-due-date');
+    //if (dueDateInput) dueDateInput.value = dueDate.toISOString().split('T')[0];
 
     // Setup products and calculations
     await this.populateProductSelects();
@@ -2880,11 +3014,129 @@ class InventoryController {
 
 class ReportController {
   static loadPage() {
-    // Reports page is ready with static content
+    this.setupEventListeners();
+
+    // Formatting dates in the local timezone to avoid UTC conversion issues.
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    document.getElementById('report-start-date').value = Utils.formatDateForInput(firstDayOfMonth);
+    document.getElementById('report-end-date').value = Utils.formatDateForInput(lastDayOfMonth);
   }
 
-  static generateReport(reportType) {
-    NotificationService.info(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report - Full implementation available in production version`);
+  static setupEventListeners() {
+    document.querySelector('.reports-grid').addEventListener('click', (e) => {
+      if (e.target.dataset.report === 'sales') {
+        this.generateSalesReport();
+      } else if (e.target.dataset.report) {
+        NotificationService.info(`${e.target.dataset.report.toUpperCase()} report coming soon!`);
+      }
+    });
+
+    document.getElementById('close-report').addEventListener('click', () => {
+      document.getElementById('report-display').classList.add('hidden');
+    });
+
+    document.getElementById('print-report').addEventListener('click', () => this.printReport());
+    document.getElementById('download-report').addEventListener('click', () => this.downloadReport());
+  }
+
+  static async generateSalesReport() {
+    LoadingService.show('Generating sales report...');
+    try {
+      const startDate = document.getElementById('report-start-date').value;
+      const endDate = document.getElementById('report-end-date').value;
+
+      if (!startDate || !endDate) {
+        NotificationService.error('Please select a valid date range.');
+        LoadingService.hide();
+        return;
+      }
+
+      const invoices = await db.invoices.where('date').between(startDate, endDate, true, true).toArray();
+      
+      let totalSales = 0;
+      let totalTax = 0;
+      let totalAmount = 0;
+      const invoiceCount = invoices.length;
+
+      let detailedRows = '';
+      for (const invoice of invoices) {
+        const customer = await db.customers.get(invoice.customer_id);
+        totalSales += invoice.subtotal || 0;
+        totalTax += invoice.tax_amount || 0;
+        totalAmount += invoice.total_amount || 0;
+        detailedRows += `
+          <tr>
+            <td>${invoice.invoice_number}</td>
+            <td>${Utils.formatDate(invoice.date)}</td>
+            <td>${Utils.sanitizeHtml(customer?.name || 'N/A')}</td>
+            <td class="text-right">${Utils.formatNumber(invoice.total_amount)}</td>
+            <td><span class="status status--${invoice.payment_status === 'paid' ? 'success' : 'warning'}">${invoice.payment_status}</span></td>
+          </tr>
+        `;
+      }
+
+      appState.currentReportData = {
+        title: 'Sales Report',
+        dateRange: `From ${Utils.formatDate(startDate)} to ${Utils.formatDate(endDate)}`,
+        summary: [
+          { label: 'Total Invoices', value: invoiceCount, isCurrency: false },
+          { label: 'Total Taxable Sales', value: totalSales, isCurrency: true },
+          { label: 'Total GST Collected', value: totalTax, isCurrency: true },
+          { label: 'Total Invoice Amount', value: totalAmount, isCurrency: true },
+        ],
+        invoices: invoices
+      };
+
+      const reportHTML = `
+        <div class="report-summary">
+          ${appState.currentReportData.summary.map(item => `
+            <div class="summary-card">
+              <h4>${item.label}</h4>
+              <p>${item.isCurrency ? Utils.formatCurrency(item.value) : item.value}</p>
+            </div>
+          `).join('')}
+        </div>
+        <div class="table-container" style="margin-top: 24px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th class="text-right">Amount (₹)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${detailedRows}</tbody>
+          </table>
+        </div>
+      `;
+
+      document.getElementById('report-title').textContent = appState.currentReportData.title;
+      document.getElementById('report-content').innerHTML = reportHTML;
+      document.getElementById('report-display').classList.remove('hidden');
+
+    } catch (error) {
+      console.error('Failed to generate sales report:', error);
+      NotificationService.error('Could not generate sales report.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
+
+  static printReport() {
+    window.print();
+  }
+
+  static downloadReport() {
+    if (appState.currentReportData) {
+      PDFService.generateSalesReportPDF(appState.currentReportData);
+    } else {
+      NotificationService.error('No report generated to download.');
+    }
   }
 }
 
