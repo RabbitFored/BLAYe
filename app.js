@@ -893,9 +893,9 @@ class InvoiceService {
         <div class="invoice-footer" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #ddd;">
             <p><strong>Bank Details:</strong></p>
             <p>
-                Beneficiary: ${BANK_DETAILS.beneficiaryName}<br>
-                A/C No: ${BANK_DETAILS.accountNumber} | IFSC: ${BANK_DETAILS.ifscCode}<br>
-                Bank: ${BANK_DETAILS.bankName}, ${BANK_DETAILS.branch}
+                Beneficiary: ${company?.beneficiaryName || ''}<br>
+                A/C No: ${company?.accountNumber || ''} | IFSC: ${company?.ifscCode || ''}<br>
+                Bank: ${company?.bankName || ''}, ${company?.branch || ''}
             </p>
             <br>
             <p><strong>Terms & Conditions:</strong></p>
@@ -1973,10 +1973,6 @@ class CustomerController {
         this.loadCustomers(e.target.value.trim());
       }, 300));
     }
-    const refreshBtn = document.getElementById('refresh-captcha-btn');
-    if(refreshBtn) {
-        refreshBtn.addEventListener('click', () => this._fetchAndDisplayCaptcha());
-    }
   }
 
   static async openModal(customerId = null) {
@@ -2009,9 +2005,9 @@ class CustomerController {
     };
     
     // Use a fresh listener to avoid duplicates from previous modal openings
-    const newGstinInput = gstinInput.cloneNode(true);
-    gstinInput.parentNode.replaceChild(newGstinInput, gstinInput);
-    newGstinInput.addEventListener('input', gstinInputHandler);
+    //const newGstinInput = gstinInput.cloneNode(true);
+    //gstinInput.parentNode.replaceChild(newGstinInput, gstinInput);
+    //newGstinInput.addEventListener('input', gstinInputHandler);
 
     // Load data if we are editing, otherwise set title for adding
     if (customerId) {
@@ -2021,9 +2017,11 @@ class CustomerController {
 
         const customer = await db.customers.get(customerId);
 
-                // ... (loading customer data) ...
+         // ... (loading customer data) ...
         document.getElementById('customer-name').value = customer.name || '';
-        document.getElementById('customer-gstin').value = customer.gstin || '';
+        
+        gstinInput.value = customer.gstin || '';
+        //document.getElementById('customer-gstin').value = customer.gstin || '';
         document.getElementById('customer-aadhar').value = customer.aadhar || '';
         document.getElementById('customer-phone').value = customer.phone || '';
         document.getElementById('customer-email').value = customer.email || '';
@@ -2032,13 +2030,15 @@ class CustomerController {
         document.getElementById('customer-state').value = customer.state_code || '';
         document.getElementById('customer-pincode').value = customer.pincode || '';
 
-        const currentGstinInput = document.getElementById('customer-gstin');
-        currentGstinInput.value = customer.gstin || '';
+        //const currentGstinInput = document.getElementById('customer-gstin');
+        //currentGstinInput.value = customer.gstin || '';
 
         // Manually dispatch an 'input' event to trigger the captcha logic
-        currentGstinInput.dispatchEvent(new Event('input'));
+        //currentGstinInput.dispatchEvent(new Event('input'));
 
         appState.editingRecord = customer;
+
+        gstinInput.addEventListener('input', gstinInputHandler);
 
       } catch (error) {
         console.error('Failed to load customer:', error);
@@ -2046,7 +2046,9 @@ class CustomerController {
     } else {
       document.getElementById('customer-modal-title').textContent = 'Add Customer';
       appState.editingRecord = null;
+      gstinInput.addEventListener('input', gstinInputHandler);
     }
+    document.getElementById('refresh-captcha-btn').addEventListener('click', () => this._fetchAndDisplayCaptcha());
   }
 
   static async fetchGstinData() {
@@ -2650,15 +2652,22 @@ class InvoiceController {
     modal.classList.remove('hidden');
   }
 
-  static async populateProductSelects() {
+  static async populateProductSelects(targetSelect = null) {
     try {
       const products = await db.products.toArray();
-      const productSelects = document.querySelectorAll('.product-select');
-      
-      productSelects.forEach(select => {
-        select.innerHTML = '<option value="">Select Product</option>' + 
-          products.map(p => `<option value="${p.id}" data-rate="${p.rate}" data-gst="${p.gst_rate}" data-unit="${p.unit}">${Utils.sanitizeHtml(p.name)} - ${Utils.formatCurrency(p.rate)}</option>`).join('');
-      });
+      const productOptionsHTML = '<option value="">Select Product</option>' + 
+        products.map(p => `<option value="${p.id}" data-rate="${p.rate}" data-gst="${p.gst_rate}" data-unit="${p.unit}">${Utils.sanitizeHtml(p.name)} - ${Utils.formatCurrency(p.rate)}</option>`).join('');
+
+      if (targetSelect) {
+        // If a specific dropdown is provided, only populate that one.
+        targetSelect.innerHTML = productOptionsHTML;
+      } else {
+        // Otherwise, populate all dropdowns (for when the form first opens).
+        const allSelects = document.querySelectorAll('.product-select');
+        allSelects.forEach(select => {
+          select.innerHTML = productOptionsHTML;
+        });
+      }
     } catch (error) {
       console.error('Failed to populate products:', error);
     }
@@ -2760,24 +2769,16 @@ class InvoiceController {
     if (gstEl) gstEl.textContent = Utils.formatCurrency(totalGST);
     if (totalEl) totalEl.textContent = Utils.formatCurrency(total);
   }
-
   static addInvoiceItem() {
     const container = document.getElementById('invoice-items-container');
     if (!container) return;
 
-    const existingRows = container.querySelectorAll('.item-row');
-    const newRowIndex = existingRows.length;
-
     const newRow = document.createElement('div');
     newRow.className = 'item-row';
-    newRow.setAttribute('data-row', newRowIndex);
-    
     newRow.innerHTML = `
       <div class="item-grid">
         <div class="item-product">
-          <select class="form-control product-select" required>
-            <option value="">Select Product</option>
-          </select>
+          <select class="form-control product-select" required></select>
         </div>
         <div class="item-quantity">
           <input type="number" class="form-control quantity-input" placeholder="Qty" step="0.001" min="0" required>
@@ -2795,7 +2796,11 @@ class InvoiceController {
     `;
 
     container.appendChild(newRow);
-    this.populateProductSelects();
+    
+    // Get the dropdown from ONLY the new row we just created
+    const newSelect = newRow.querySelector('.product-select');
+    // And populate ONLY that new dropdown
+    this.populateProductSelects(newSelect);
   }
 
   // FIXED: Working invoice creation
@@ -2883,6 +2888,9 @@ class InvoiceController {
         this.closeModal();
         await this.loadInvoices();
         DashboardController.updateNavigationCounts();
+
+        // Automatically open the viewer for the new invoice
+        this.viewInvoice(result.invoiceId);
         
         if (appState.currentPage === 'dashboard') {
           await DashboardController.updateStats();
