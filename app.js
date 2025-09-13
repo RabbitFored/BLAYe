@@ -2924,6 +2924,16 @@ class InvoiceController {
       
       if (titleEl) titleEl.textContent = `Invoice ${invoice.invoice_number}`;
       if (contentEl) contentEl.innerHTML = invoiceHTML;
+
+      //document.getElementById('edit-invoice-btn').onclick = () => this.editInvoice(invoiceId);
+      
+      document.getElementById('print-invoice-btn').onclick = () => this.printInvoice(invoiceId);
+      document.getElementById('download-invoice-btn').onclick = () => this.downloadInvoice(invoiceId);
+      
+      document.getElementById('edit-invoice-btn').onclick = () => {
+        NotificationService.info('Editing will be available in a future update.');
+      };
+
       if (viewerModal) viewerModal.classList.remove('hidden');
       
       LoadingService.hide();
