@@ -393,7 +393,7 @@ class DatabaseService {
 
       // Sample customers
       const customers = [
-        {
+       /* {
           name: 'Sri Vaari Tex',
           gstin: '33AFQFS4393P1Z0',
           aadhar: '',
@@ -408,7 +408,7 @@ class DatabaseService {
         },
         {
           name: 'Golden Textiles',
-          gstin: '27BCDPG1234H1Z5',
+          gstin: '',
           aadhar: '1234 5678 9012',
           address: 'Shop 15, Textile Market',
           city: 'Mumbai',
@@ -430,14 +430,14 @@ class DatabaseService {
           phone: '9988776655',
           email: '',
           created_at: new Date()
-        }
+        } */
       ];
 
       await db.customers.bulkAdd(customers);
 
       // Sample products
       const products = [
-        {
+       /* {
           name: 'Karara Spandex',
           hsn_code: '60063100',
           category: 'Fabric',
@@ -491,14 +491,14 @@ class DatabaseService {
           stock_quantity: 25,
           min_stock: 100,
           created_at: new Date()
-        }
+        }*/
       ];
 
       await db.products.bulkAdd(products);
 
       // Sample invoices
       const invoices = [
-        {
+        /*{
           invoice_number: 'INV720',
           customer_id: 1,
           date: '2024-12-06',
@@ -566,7 +566,7 @@ class DatabaseService {
           total_amount: 6720,
           payment_status: 'paid',
           created_at: new Date()
-        }
+        }*/
       ];
 
       await db.invoices.bulkAdd(invoices);
@@ -578,7 +578,8 @@ class DatabaseService {
         { key: 'payment_terms', value: '30', updated_at: new Date() },
         { key: 'terms_conditions', value: 'Payment due within 30 days. Subject to Surat jurisdiction.', updated_at: new Date() },
         { key: 'auto_backup', value: 'daily', updated_at: new Date() },
-        { key: 'low_stock_threshold', value: '10', updated_at: new Date() }
+        { key: 'low_stock_threshold', value: '10', updated_at: new Date() },
+        { key: 'isSetupComplete', value: 'false', updated_at: new Date() }
       ];
 
       await db.settings.bulkAdd(defaultSettings);
@@ -1462,8 +1463,11 @@ class App {
       this.setupEventListeners();
       this.setupNetworkDetection();
 
-      BackupController.init()
-      
+      await OnboardingController.init();
+      await this.showPage('dashboard');
+
+      BackupController.init();
+
       // Load initial page
       await this.showPage('dashboard');
 
@@ -1668,6 +1672,7 @@ class App {
 
     appState.updateSyncStatus();
   }
+
 
   // FIXED: Page navigation with proper error handling
   static async showPage(pageId) {
@@ -1978,6 +1983,7 @@ class CustomerController {
       this.closeModal();
       await this.loadCustomers();
       DashboardController.updateNavigationCounts();
+      OnboardingController.updateStepStatus()
 
     } catch (error) {
       console.error('Failed to save customer:', error);
@@ -2248,7 +2254,7 @@ class ProductController {
       await this.populateCategoryFilter(); // Repopulate categories in case a new one was added
 
       DashboardController.updateNavigationCounts();
-
+      OnboardingController.updateStepStatus();
     } catch (error) {
       console.error('Failed to save product:', error);
       NotificationService.error('Failed to save product');
@@ -2707,6 +2713,7 @@ class InvoiceController {
           await DashboardController.updateStats();
           await DashboardController.loadRecentActivity();
         }
+        OnboardingController.updateStepStatus();
       } else {
         NotificationService.error(result.error || 'Failed to create invoice');
       }
@@ -2994,7 +3001,7 @@ class SettingsController {
       }
 
       NotificationService.success('Settings saved successfully');
-
+      OnboardingController.updateStepStatus();
     } catch (error) {
       console.error('Failed to save settings:', error);
       NotificationService.error('Failed to save settings');
@@ -3034,6 +3041,89 @@ class BackupController {
         BackupService.importData(file);
       });
     }
+  }
+}
+
+// In app.js
+
+class OnboardingController {
+  static async init() {
+    if (appState.settings.isSetupComplete === 'true') {
+      document.getElementById('onboarding-wizard').classList.add('hidden');
+      document.getElementById('dashboard-content').classList.remove('hidden');
+      return;
+    }
+    this.showWizard();
+  }
+
+  static showWizard() {
+    document.getElementById('dashboard-content').classList.add('hidden');
+    document.getElementById('onboarding-wizard').classList.remove('hidden');
+    this.updateStepStatus();
+
+    // Event listeners are now simpler
+    document.querySelector('#onboarding-wizard').addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') {
+        if (e.target.dataset.step) {
+          this.handleStepAction(e.target.dataset.step);
+        } else if (e.target.id === 'finish-onboarding-btn') {
+          this.finishOnboarding();
+        }
+      }
+    });
+  }
+
+  static async updateStepStatus() {
+    const company = await db.companies.orderBy('id').first();
+    const productCount = await db.products.count();
+    const customerCount = await db.customers.count();
+    const invoiceCount = await db.invoices.count();
+    
+    document.querySelectorAll('.onboarding-step').forEach(el => el.classList.remove('active', 'completed'));
+    
+    if (company && company.name && company.gstin) {
+      document.getElementById('step-company').classList.add('completed');
+    } else {
+      document.getElementById('step-company').classList.add('active');
+      return;
+    }
+
+    if (productCount > 0) {
+      document.getElementById('step-product').classList.add('completed');
+    } else {
+      document.getElementById('step-product').classList.add('active');
+      return;
+    }
+
+    if (customerCount > 0) {
+      document.getElementById('step-customer').classList.add('completed');
+    } else {
+      document.getElementById('step-customer').classList.add('active');
+      return;
+    }
+
+    if (invoiceCount > 0) {
+      document.getElementById('step-invoice').classList.add('completed');
+      this.finishOnboarding();
+    } else {
+      document.getElementById('step-invoice').classList.add('active');
+    }
+  }
+  
+  static handleStepAction(step) {
+    switch(step) {
+      case 'company': App.showPage('settings'); break;
+      case 'product': ProductController.openModal(); break;
+      case 'customer': CustomerController.openModal(); break;
+      case 'invoice': InvoiceController.openModal(); break;
+    }
+  }
+
+  static async finishOnboarding() {
+    await DatabaseService.updateSetting('isSetupComplete', 'true');
+    document.getElementById('onboarding-wizard').classList.add('hidden');
+    document.getElementById('dashboard-content').classList.remove('hidden');
+    DashboardController.loadPage(); 
   }
 }
 // Global functions for onclick handlers

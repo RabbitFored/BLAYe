@@ -115,6 +115,7 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
+            
             <!-- Dashboard Page -->
             <div id="dashboard-page" class="page active">
                 <div class="page-header">
@@ -131,6 +132,56 @@
                         </button>
                     </div> -->
                 </div>
+
+                <!-- Wizard -->
+                <div id="onboarding-wizard" class="hidden">
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card__body">
+            <h2>Welcome to BLAYe!</h2>
+            <p class="text-secondary">Let's get your business set up in just a few moments. Complete these steps to create your first invoice.</p>
+        </div>
+    </div>
+
+    <div class="onboarding-steps">
+        <div class="onboarding-step" id="step-company">
+            <div class="step-status"></div>
+            <div class="step-content">
+                <h4>1. Set Up Your Company Details</h4>
+                <p>Add your company name, address, and GSTIN. This will appear on all your invoices.</p>
+                <button class="btn btn--primary btn--sm" data-step="company">Go to Settings</button>
+            </div>
+        </div>
+        <div class="onboarding-step" id="step-product">
+            <div class="step-status"></div>
+            <div class="step-content">
+                <h4>2. Add Your First Product or Service</h4>
+                <p>Create an item with a price and GST rate so you can add it to an invoice.</p>
+                <button class="btn btn--primary btn--sm" data-step="product">Add Product</button>
+            </div>
+        </div>
+        <div class="onboarding-step" id="step-customer">
+            <div class="step-status"></div>
+            <div class="step-content">
+                <h4>3. Add Your First Customer</h4>
+                <p>Save a customer's details so you can bill them quickly.</p>
+                <button class="btn btn--primary btn--sm" data-step="customer">Add Customer</button>
+            </div>
+        </div>
+        <div class="onboarding-step" id="step-invoice">
+            <div class="step-status"></div>
+            <div class="step-content">
+                <h4>4. Create Your First Invoice!</h4>
+                <p>You're all set! Create your first professional invoice.</p>
+                <button class="btn btn--primary btn--sm" data-step="invoice">Create Invoice</button>
+            </div>
+        </div>
+    </div>
+    <div class="onboarding-footer">
+        <button class="btn btn--link" id="finish-onboarding-btn">I'll Do This Later</button>
+    </div>
+</div>
+
+                <div id="dashboard-content">
                 <!-- Quick Actions Bar -->
                 <div class="quick-actions-bar">
                     <button class="quick-action-btn create-invoice" id="quick-create-invoice">
@@ -254,6 +305,7 @@
                     <div class="activity-list" id="activity-list">
                         <!-- Populated dynamically -->
                     </div>
+                </div>
                 </div>
             </div>
 
