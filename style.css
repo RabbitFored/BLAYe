@@ -180,6 +180,58 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Expandable Row Styles for Inventory */
+.expand-btn {
+  background: var(--color-secondary);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  transition: transform 0.2s ease-in-out;
+}
+.expand-btn.expanded {
+  transform: rotate(45deg);
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-primary);
+}
+.transaction-log-row {
+  display: none; /* Hidden by default */
+}
+.transaction-log-row.visible {
+  display: table-row;
+}
+.transaction-log-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+.transaction-log-content {
+  background: var(--color-background);
+  padding: var(--space-16);
+}
+.transaction-log-content h5 {
+  margin: 0 0 var(--space-12) 0;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.transaction-log-table {
+  width: 100%;
+  font-size: var(--font-size-xs);
+}
+.transaction-log-table th {
+  background: none;
+  border: none;
+  padding: var(--space-4) var(--space-8);
+}
+.transaction-log-table td {
+  border: none;
+  padding: var(--space-4) var(--space-8);
+}
+
 /* Dark mode colors */
 @media (prefers-color-scheme: dark) {
   :root {

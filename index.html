@@ -481,52 +481,50 @@
 
             <!-- Inventory Page -->
             <div id="inventory-page" class="page">
-                <div class="page-header">
-                    <div>
-                        <h2>Inventory Management</h2>
-                        <p class="text-secondary">Track stock levels and movements</p>
-                    </div>
-                    <button class="btn btn--primary" id="stock-adjustment-btn">Stock Adjustment</button>
-                </div>
+    <div class="page-header">
+        <div>
+            <h2>Inventory Management</h2>
+            <p class="text-secondary">Track stock levels and movements</p>
+        </div>
+        <button class="btn btn--primary" id="stock-adjustment-btn">Stock Adjustment</button>
+    </div>
 
-                <div class="inventory-summary">
-                    <div class="summary-card">
-                        <h4>Total Products</h4>
-                        <p id="total-products">0</p>
-                    </div>
-                    <div class="summary-card alert">
-                        <h4>Low Stock Items</h4>
-                        <p id="low-stock-items">0</p>
-                    </div>
-                    <div class="summary-card warning">
-                        <h4>Out of Stock</h4>
-                        <p id="out-of-stock">0</p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>Total Value</h4>
-                        <p id="inventory-value">₹0</p>
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Current Stock</th>
-                                <th>Min Stock</th>
-                                <th>Unit Value</th>
-                                <th>Total Value</th>
-                                <th>Last Updated</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-tbody">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="inventory-summary">
+        <div class="summary-card">
+            <h4>Total Products</h4>
+            <p id="total-products">0</p>
+        </div>
+        <div class="summary-card alert">
+            <h4>Low Stock Items</h4>
+            <p id="low-stock-items">0</p>
+        </div>
+        <div class="summary-card warning">
+            <h4>Out of Stock</h4>
+            <p id="out-of-stock">0</p>
+        </div>
+        <div class="summary-card">
+            <h4>Total Value</h4>
+            <p id="inventory-value">₹0</p>
+        </div>
+    </div>
+    <div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 40px;"></th> <th>Product</th>
+                <th>Current Stock</th>
+                <th>Min Stock</th>
+                <th>Unit Value</th>
+                <th>Total Value</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="inventory-tbody">
+             <!-- Populated dynamically -->
+            </tbody>
+    </table>
+</div>
+</div>
 
             <!-- Reports Page -->
             <div id="reports-page" class="page">
@@ -801,6 +799,42 @@
     </div>
 
     <!-- Modals -->
+    <!-- Stock Adjustment Modal -->
+    <div id="stock-adjustment-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Stock Adjustment</h3>
+            <button class="modal-close" type="button">&times;</button>
+        </div>
+        <form id="stock-adjustment-form">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Product *</label>
+                    <select id="adj-product-select" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adjustment Type *</label>
+                    <select id="adj-type-select" class="form-control" required>
+                        <option value="addition">Addition (Stock In)</option>
+                        <option value="subtraction">Subtraction (Stock Out)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity *</label>
+                    <input type="number" id="adj-quantity" class="form-control" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (Optional)</label>
+                    <input type="text" id="adj-notes" class="form-control" placeholder="e.g., Initial stock take, Damaged goods">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn--primary">Save Adjustment</button>
+            </div>
+        </form>
+    </div>
+</div>
     <div id="restore-confirm-modal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header">
