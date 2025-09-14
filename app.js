@@ -17,7 +17,7 @@ db.version(1).stores({
   companies: '++id, gstin, name, state, state_code, beneficiaryName, accountNumber, ifscCode, bankName, branch, created_at',
   customers: '++id, name, gstin, aadhar, phone, email, state_code, created_at',
   products: '++id, name, hsn_code, category, stock_quantity, min_stock, rate,  unit, gst_rate, created_at',
-  invoices: '++id, invoice_number, customer_id, date, total, payment_status, created_at',
+  invoices: '++id, invoice_number, customer_id, date, total, amount_paid, payment_status, created_at',
   payments: '++id, invoice_id, amount, payment_method, payment_date, created_at',
   inventory_transactions: '++id, product_id, transaction_type, quantity, reference_id, created_at',
   settings: '++id, key, value, updated_at',
@@ -1605,6 +1605,7 @@ class App {
       await this.showPage('dashboard');
 
       BackupController.init();
+      PaymentController.init(); 
       ThemeController.init();
 
       // Load initial page
@@ -2551,7 +2552,7 @@ class InvoiceController {
     this.setupEventListeners();
   }
 
-  // FIXED: Working invoice filters
+  // Working invoice filters
   static async loadInvoices(filters = {}) {
     try {
       let invoices = await db.invoices.orderBy('created_at').reverse().toArray();
@@ -2603,10 +2604,21 @@ class InvoiceController {
         
         // Check if overdue
         const today = new Date().toISOString().split('T')[0];
-        const finalStatus = invoice.payment_status;
+        let finalStatus = invoice.payment_status;
         
+        if (finalStatus !== 'paid' && finalStatus !== 'cancelled') {
+            const amount_paid = invoice.amount_paid || 0;
+            if (amount_paid >= invoice.total_amount) {
+                finalStatus = 'paid';
+            } else if (amount_paid > 0) {
+                finalStatus = 'partially paid';
+            } else {
+                finalStatus = 'pending';
+            }
+        }
         const statusClass = finalStatus === 'paid' ? 'success' : 
-                          finalStatus === 'overdue' ? 'error' : 'warning';
+                          finalStatus === 'cancelled' ? 'info' : 
+                          finalStatus === 'partially paid' ? 'warning' : 'error';
         const statusText = finalStatus.charAt(0).toUpperCase() + finalStatus.slice(1);
 
         html += `
@@ -2619,33 +2631,22 @@ class InvoiceController {
             <td><span class="status status--${statusClass}">${statusText}</span></td>
             <td>
               <div class="action-buttons">
+                ${finalStatus !== 'paid' && finalStatus !== 'cancelled' ? 
+                `<button class="btn btn--primary btn--sm" onclick="PaymentController.openPaymentModal(${invoice.id})">Add Payment</button>` : ''}
+                
                 <button class="btn btn--secondary btn--sm btn-icon" onclick="InvoiceController.viewInvoice(${invoice.id})" title="View">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-                <button class="btn btn--primary btn--sm btn-icon" onclick="InvoiceController.printInvoice(${invoice.id})" title="Print">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                  </svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
                 <button class="btn btn--outline btn--sm btn-icon" onclick="InvoiceController.downloadInvoice(${invoice.id})" title="Download">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-                  </svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                 </button>
               </div>
             </td>
           </tr>
         `;
-      }
+                }
+      tbody.innerHTML = html || '<tr><td colspan="7" class="text-center">No invoices found</td></tr>';
 
-      if (html === '') {
-        html = '<tr><td colspan="8" class="text-center" style="padding: 40px;">No invoices found</td></tr>';
-      }
-
-      tbody.innerHTML = html;
 
     } catch (error) {
       console.error('Failed to load invoices:', error);
@@ -2995,9 +2996,12 @@ class InvoiceController {
       const invoiceHTML = await InvoiceService.generateInvoiceHTML(invoiceId);
       const invoice = await db.invoices.get(invoiceId);
       
+      
       const viewerModal = document.getElementById('invoice-viewer-modal');
       const titleEl = document.getElementById('invoice-viewer-title');
       const contentEl = document.getElementById('invoice-content');
+      
+      await PaymentController.displayPaymentHistory(invoiceId);
       
       if (titleEl) titleEl.textContent = `Invoice ${invoice.invoice_number}`;
       if (contentEl) contentEl.innerHTML = invoiceHTML;
@@ -3109,6 +3113,105 @@ class InvoiceController {
   }
 }
 
+class PaymentController {
+  static init() {
+    // Listener for the payment form submission
+    document.getElementById('payment-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.savePayment();
+    });
+  }
+
+  static async openPaymentModal(invoiceId) {
+    const modal = document.getElementById('payment-modal');
+    const form = document.getElementById('payment-form');
+    if (!modal || !form) return;
+
+    form.reset();
+    form.dataset.invoiceId = invoiceId;
+
+    const invoice = await db.invoices.get(invoiceId);
+    const amountDue = (invoice.total_amount || 0) - (invoice.amount_paid || 0);
+
+    document.getElementById('payment-invoice-number').textContent = invoice.invoice_number;
+    document.getElementById('payment-total-amount').textContent = Utils.formatCurrency(invoice.total_amount);
+    document.getElementById('payment-amount-due').textContent = Utils.formatCurrency(amountDue);
+    document.getElementById('payment-amount').value = amountDue.toFixed(2);
+    document.getElementById('payment-date').value = Utils.formatDateForInput(new Date());
+    
+    modal.classList.remove('hidden');
+  }
+
+  static async savePayment() {
+    const form = document.getElementById('payment-form');
+    const invoiceId = parseInt(form.dataset.invoiceId);
+    const amount = parseFloat(document.getElementById('payment-amount').value);
+    
+    if (!invoiceId || !amount || amount <= 0) {
+      NotificationService.error('Please enter a valid payment amount.');
+      return;
+    }
+
+    LoadingService.show('Recording payment...');
+    try {
+      const invoice = await db.invoices.get(invoiceId);
+      const newAmountPaid = (invoice.amount_paid || 0) + amount;
+      
+      let newStatus = 'pending';
+      if (newAmountPaid >= invoice.total_amount) {
+        newStatus = 'paid';
+      } else if (newAmountPaid > 0) {
+        newStatus = 'partially paid';
+      }
+
+      await db.transaction('rw', db.invoices, db.payments, async () => {
+        // Add payment record
+        await db.payments.add({
+          invoice_id: invoiceId,
+          amount: amount,
+          payment_date: document.getElementById('payment-date').value,
+          payment_method: document.getElementById('payment-method').value,
+          notes: document.getElementById('payment-notes').value,
+          created_at: new Date()
+        });
+        
+        // Update invoice
+        await db.invoices.update(invoiceId, {
+          amount_paid: newAmountPaid,
+          payment_status: newStatus
+        });
+      });
+
+      document.getElementById('payment-modal').classList.add('hidden');
+      await InvoiceController.loadInvoices();
+      NotificationService.success('Payment recorded successfully!');
+
+    } catch (error) {
+      console.error('Failed to save payment:', error);
+      NotificationService.error('Failed to save payment.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
+
+  static async displayPaymentHistory(invoiceId) {
+    const container = document.getElementById('payment-history-list');
+    const payments = await db.payments.where('invoice_id').equals(invoiceId).toArray();
+
+    if (payments.length > 0) {
+      container.innerHTML = payments.map(p => `
+        <div class="payment-history-item">
+          <span>${Utils.formatDate(p.payment_date)} - ${p.payment_method}</span>
+          <strong>${Utils.formatCurrency(p.amount)}</strong>
+        </div>
+      `).join('');
+      document.getElementById('payment-history-section').classList.remove('hidden');
+    } else {
+      container.innerHTML = '';
+      document.getElementById('payment-history-section').classList.add('hidden');
+    }
+  }
+}
 // SIMPLIFIED Controllers for other pages
 /*
 class InventoryController {
