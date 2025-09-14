@@ -1639,8 +1639,8 @@ class App {
   }
 
   // FIXED: Event listeners setup with proper error handling
-  static setupEventListeners() {
-    console.log('Setting up event listeners...');
+  /*static setupEventListeners() {
+    console.log('Setting up global event listeners...');
     
     try {
       // Navigation
@@ -1795,6 +1795,81 @@ class App {
     } catch (error) {
       console.error('Failed to setup event listeners:', error);
     }
+  }
+  */
+
+  static setupEventListeners() {
+    console.log('Setting up global event listeners...');
+    
+    // --- Navigation ---
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = item.getAttribute('data-page');
+        if (page) this.showPage(page);
+      });
+    });
+
+    // --- Global Actions (Header, Quick Actions) ---
+    document.getElementById('backup-btn')?.addEventListener('click', () => BackupService.exportData());
+    document.getElementById('quick-create-invoice')?.addEventListener('click', () => InvoiceController.openModal());
+    document.getElementById('quick-add-customer')?.addEventListener('click', () => CustomerController.openModal());
+    document.getElementById('quick-add-product')?.addEventListener('click', () => ProductController.openModal());
+    document.getElementById('menu-toggle')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
+
+    // --- Page-Specific "Add" Buttons ---
+    document.getElementById('add-customer-btn')?.addEventListener('click', () => CustomerController.openModal());
+    document.getElementById('add-product-btn')?.addEventListener('click', () => ProductController.openModal());
+    document.getElementById('create-invoice-btn')?.addEventListener('click', () => InvoiceController.openModal());
+    document.getElementById('stock-adjustment-btn')?.addEventListener('click', () => InventoryController.openAdjustmentModal());
+
+    // --- Form Submissions ---
+    document.getElementById('customer-form')?.addEventListener('submit', (e) => { e.preventDefault(); CustomerController.saveCustomer(); });
+    document.getElementById('product-form')?.addEventListener('submit', (e) => { e.preventDefault(); ProductController.saveProduct(); });
+    document.getElementById('invoice-form')?.addEventListener('submit', (e) => { e.preventDefault(); InvoiceController.saveInvoice(); });
+    document.getElementById('stock-adjustment-form')?.addEventListener('submit', (e) => { e.preventDefault(); InventoryController.saveAdjustment(); });
+    
+    const inventoryTbody = document.getElementById('inventory-tbody');
+    if (inventoryTbody) {
+      inventoryTbody.addEventListener('click', (e) => {
+        const target = e.target.closest('.expand-btn');
+        if (target) {
+          InventoryController.toggleTransactionHistory(target);
+        }
+      });
+    }
+    // --- Settings Page ---
+    document.getElementById('save-settings')?.addEventListener('click', () => SettingsController.saveSettings());
+    
+    // --- Reports Page Listeners ---
+    document.querySelector('.reports-grid')?.addEventListener('click', (e) => {
+      const reportType = e.target.dataset.report;
+      if (reportType === 'sales') ReportController.generateSalesReport();
+      else if (reportType === 'gst') ReportController.generateGstReport();
+      else if (reportType) NotificationService.info(`${reportType.toUpperCase()} report coming soon!`);
+    });
+    document.getElementById('close-report')?.addEventListener('click', () => document.getElementById('report-display').classList.add('hidden'));
+    document.getElementById('print-report')?.addEventListener('click', () => ReportController.printReport());
+    document.getElementById('download-report')?.addEventListener('click', () => ReportController.downloadReport());
+
+    // --- Modal Closing Logic ---
+    document.querySelectorAll('.modal-close, [data-dismiss="modal"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const modal = btn.closest('.modal');
+        if (modal) modal.classList.add('hidden');
+      });
+    });
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal:not(.hidden)').forEach(modal => modal.classList.add('hidden'));
+      }
+    });
   }
 
   static setupNetworkDetection() {
@@ -3080,7 +3155,7 @@ class InventoryController {
 // In app.js
 class InventoryController {
   static async loadPage() {
-    this.setupEventListeners();
+    // this.setupEventListeners();
     await this.loadInventoryList();
   }
   
@@ -3100,7 +3175,11 @@ class InventoryController {
 
     const tbody = document.getElementById('inventory-tbody');
     if (tbody) {
-      tbody.addEventListener('click', (e) => {
+
+      const newTbody = tbody.cloneNode(true);
+      tbody.parentNode.replaceChild(newTbody, tbody);
+
+      newTbody.addEventListener('click', (e) => {
         const target = e.target.closest('.expand-btn');
         if (target) {
           this.toggleTransactionHistory(target);
@@ -3179,14 +3258,16 @@ class InventoryController {
   }
 
   static toggleTransactionHistory(button) {
+    // This is now called via event delegation from App.setupEventListeners
     button.classList.toggle('expanded');
-    button.textContent = button.classList.contains('expanded') ? '-' : '+';
+    button.textContent = button.classList.contains('expanded') ? '−' : '+';
     const productId = button.dataset.productId;
     const logRow = document.querySelector(`.transaction-log-row[data-log-for="${productId}"]`);
     if (logRow) {
       logRow.classList.toggle('visible');
     }
   }
+
 
   static async openAdjustmentModal() {
     const modal = document.getElementById('stock-adjustment-modal');
@@ -3237,7 +3318,7 @@ class InventoryController {
 }
 class ReportController {
   static loadPage() {
-    this.setupEventListeners();
+    //this.setupEventListeners();
 
     // Formatting dates in the local timezone to avoid UTC conversion issues.
     const today = new Date();
