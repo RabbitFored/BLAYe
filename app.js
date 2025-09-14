@@ -1315,6 +1315,37 @@ class BackupService {
       NotificationService.error('Restore failed. Please check the file and try again.');
     }
   }
+  static async performRestore(file) {
+    LoadingService.show('Restoring data...');
+    try {
+      const fileContent = await file.text();
+      const backupData = JSON.parse(fileContent);
+
+      if (!backupData.data || !backupData.version) {
+        throw new Error('Invalid backup file format.');
+      }
+
+      await db.transaction('rw', db.tables, async () => {
+        for (const table of db.tables) {
+          await table.clear();
+        }
+        for (const tableName of Object.keys(backupData.data)) {
+          if (db[tableName]) {
+            await db[tableName].bulkAdd(backupData.data[tableName]);
+          }
+        }
+      });
+      
+      LoadingService.hide();
+      NotificationService.success('Restore successful! The application will now reload.');
+      setTimeout(() => window.location.reload(), 2000);
+
+    } catch (error) {
+      LoadingService.hide();
+      console.error('Restore failed:', error);
+      NotificationService.error('Restore failed. Please check the file and try again.');
+    }
+  }
 }
 
 // FIXED: Dashboard Controller with proper async handling
@@ -1844,6 +1875,60 @@ class App {
     document.getElementById('close-report')?.addEventListener('click', () => document.getElementById('report-display').classList.add('hidden'));
     document.getElementById('print-report')?.addEventListener('click', () => ReportController.printReport());
     document.getElementById('download-report')?.addEventListener('click', () => ReportController.downloadReport());
+
+    // --- Invoice Page: Filters and Dynamic Menu ---
+    const invoiceSearch = document.getElementById('invoice-search');
+    const statusFilter = document.getElementById('status-filter');
+    const dateFromFilter = document.getElementById('date-from');
+    const dateToFilter = document.getElementById('date-to');
+    const clearFiltersBtn = document.getElementById('clear-filters');
+    const applyInvoiceFilters = () => {
+      const filters = {
+        searchTerm: invoiceSearch?.value.trim() || '',
+        status: statusFilter?.value || '',
+        dateFrom: dateFromFilter?.value || '',
+        dateTo: dateToFilter?.value || ''
+      };
+      InvoiceController.loadInvoices(filters);
+    };
+    invoiceSearch?.addEventListener('input', Utils.debounce(applyInvoiceFilters, 300));
+    statusFilter?.addEventListener('change', applyInvoiceFilters);
+    dateFromFilter?.addEventListener('change', applyInvoiceFilters);
+    dateToFilter?.addEventListener('change', applyInvoiceFilters);
+    clearFiltersBtn?.addEventListener('click', () => {
+        if(invoiceSearch) invoiceSearch.value = '';
+        if(statusFilter) statusFilter.value = '';
+        if(dateFromFilter) dateFromFilter.value = '';
+        if(dateToFilter) dateToFilter.value = '';
+        InvoiceController.loadInvoices();
+    });
+
+    const invoicesTbody = document.getElementById('invoices-tbody');
+    if (invoicesTbody) {
+      invoicesTbody.addEventListener('click', (e) => {
+        const menuBtn = e.target.closest('.action-menu-btn');
+        const menuItem = e.target.closest('.action-menu-item');
+        
+        if (menuBtn) {
+          e.preventDefault();
+          const menu = menuBtn.nextElementSibling;
+          document.querySelectorAll('.action-menu-content.show').forEach(m => {
+            if (m !== menu) m.classList.remove('show');
+          });
+          menu.classList.toggle('show');
+          return;
+        }
+
+        if (menuItem) {
+          e.preventDefault();
+          const invoiceId = parseInt(menuItem.dataset.invoiceId);
+          const action = menuItem.dataset.action;
+          if (action === 'add-payment') PaymentController.openPaymentModal(invoiceId);
+          if (action === 'download') InvoiceController.downloadInvoice(invoiceId);
+          menuItem.closest('.action-menu-content').classList.remove('show');
+        }
+      });
+    }
 
     // --- Inventory Page ---
     document.getElementById('stock-adjustment-btn')?.addEventListener('click', () => InventoryController.openAdjustmentModal());
@@ -2549,7 +2634,7 @@ class ProductController {
 class InvoiceController {
   static async loadPage() {
     await this.loadInvoices();
-    this.setupEventListeners();
+    //this.setupEventListeners();
   }
 
   // Working invoice filters
@@ -2557,36 +2642,18 @@ class InvoiceController {
     try {
       let invoices = await db.invoices.orderBy('created_at').reverse().toArray();
 
-      // Apply status filter - FIXED
+      // The logic for filtering invoices based on status, search term, and dates.
       if (filters.status && filters.status !== '') {
-        if (filters.status === 'overdue') {
-          const today = new Date().toISOString().split('T')[0];
-          invoices = invoices.filter(inv => 
-            inv.payment_status === 'pending'
-          );
-        } else {
-          invoices = invoices.filter(inv => inv.payment_status === filters.status);
-        }
+        invoices = invoices.filter(inv => inv.payment_status === filters.status);
       }
-
-      // Apply search filter
       if (filters.searchTerm) {
         const searchTerm = filters.searchTerm.toLowerCase();
-        const filteredInvoices = [];
-        
-        for (const invoice of invoices) {
-          const customer = await db.customers.get(invoice.customer_id);
-          const customerName = customer?.name?.toLowerCase() || '';
-          
-          if (invoice.invoice_number.toLowerCase().includes(searchTerm) ||
-              customerName.includes(searchTerm)) {
-            filteredInvoices.push(invoice);
-          }
-        }
-        invoices = filteredInvoices;
+        const customerIds = (await db.customers.where('name').startsWithIgnoreCase(searchTerm).toArray()).map(c => c.id);
+        invoices = invoices.filter(inv => 
+            inv.invoice_number.toLowerCase().includes(searchTerm) || 
+            customerIds.includes(inv.customer_id)
+        );
       }
-
-      // Apply date filters
       if (filters.dateFrom) {
         invoices = invoices.filter(inv => inv.date >= filters.dateFrom);
       }
@@ -2598,27 +2665,10 @@ class InvoiceController {
       if (!tbody) return;
 
       let html = '';
-
       for (const invoice of invoices) {
         const customer = await db.customers.get(invoice.customer_id);
-        
-        // Check if overdue
-        const today = new Date().toISOString().split('T')[0];
-        let finalStatus = invoice.payment_status;
-        
-        if (finalStatus !== 'paid' && finalStatus !== 'cancelled') {
-            const amount_paid = invoice.amount_paid || 0;
-            if (amount_paid >= invoice.total_amount) {
-                finalStatus = 'paid';
-            } else if (amount_paid > 0) {
-                finalStatus = 'partially paid';
-            } else {
-                finalStatus = 'pending';
-            }
-        }
-        const statusClass = finalStatus === 'paid' ? 'success' : 
-                          finalStatus === 'cancelled' ? 'info' : 
-                          finalStatus === 'partially paid' ? 'warning' : 'error';
+        const finalStatus = invoice.payment_status || 'pending';
+        const statusClass = finalStatus === 'paid' ? 'success' : 'warning';
         const statusText = finalStatus.charAt(0).toUpperCase() + finalStatus.slice(1);
 
         html += `
@@ -2631,26 +2681,29 @@ class InvoiceController {
             <td><span class="status status--${statusClass}">${statusText}</span></td>
             <td>
               <div class="action-buttons">
-                ${finalStatus !== 'paid' && finalStatus !== 'cancelled' ? 
-                `<button class="btn btn--primary btn--sm" onclick="PaymentController.openPaymentModal(${invoice.id})">Add Payment</button>` : ''}
-                
                 <button class="btn btn--secondary btn--sm btn-icon" onclick="InvoiceController.viewInvoice(${invoice.id})" title="View">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
-                <button class="btn btn--outline btn--sm btn-icon" onclick="InvoiceController.downloadInvoice(${invoice.id})" title="Download">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                </button>
+                
+                <div class="action-menu">
+                  <button class="btn btn--outline btn--sm btn-icon action-menu-btn" title="More Actions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5.25a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>
+                  </button>
+                  <div class="action-menu-content">
+                    ${finalStatus !== 'paid' && finalStatus !== 'cancelled' ? 
+                    `<button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="add-payment">Add Payment</button>` : ''}
+                    <button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="print">Print Invoice</button>
+                    <button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="download">Download PDF</button>
+                  </div>
+                </div>
               </div>
             </td>
           </tr>
         `;
-                }
+      }
       tbody.innerHTML = html || '<tr><td colspan="7" class="text-center">No invoices found</td></tr>';
-
-
     } catch (error) {
       console.error('Failed to load invoices:', error);
-      document.getElementById('invoices-tbody').innerHTML = '<tr><td colspan="8" class="text-center">Error loading invoices</td></tr>';
     }
   }
 
@@ -2696,6 +2749,45 @@ class InvoiceController {
         if (dateFromFilter) dateFromFilter.value = '';
         if (dateToFilter) dateToFilter.value = '';
         this.loadInvoices();
+      });
+    }
+
+    const tbody = document.getElementById('invoices-tbody');
+    if (tbody) {
+      tbody.addEventListener('click', (e) => {
+        const menuBtn = e.target.closest('.action-menu-btn');
+        const menuItem = e.target.closest('.action-menu-item');
+        
+        // Handle opening/closing the menu
+        if (menuBtn) {
+          e.preventDefault();
+          const menu = menuBtn.nextElementSibling;
+          // Close other menus
+          document.querySelectorAll('.action-menu-content.show').forEach(m => {
+            if (m !== menu) m.classList.remove('show');
+          });
+          menu.classList.toggle('show');
+          return;
+        }
+
+        // Handle clicking an item inside the menu
+        if (menuItem) {
+          e.preventDefault();
+          const invoiceId = parseInt(menuItem.dataset.invoiceId);
+          const action = menuItem.dataset.action;
+
+          if (action === 'add-payment') PaymentController.openPaymentModal(invoiceId);
+          if (action === 'download') this.downloadInvoice(invoiceId);
+          
+          menuItem.closest('.action-menu-content').classList.remove('show');
+        }
+      });
+      
+      // Close menus if clicking elsewhere
+      window.addEventListener('click', (e) => {
+        if (!e.target.closest('.action-menu')) {
+          document.querySelectorAll('.action-menu-content.show').forEach(m => m.classList.remove('show'));
+        }
       });
     }
   }
@@ -3799,22 +3891,48 @@ class SettingsController {
 
 class BackupController {
   static init() {
-    // Listener for the main backup button in the header
     const backupBtn = document.getElementById('backup-btn');
     if (backupBtn) {
       backupBtn.addEventListener('click', () => BackupService.exportData());
     }
 
-    // Listeners for the restore section on the settings page
     const restoreBtn = document.getElementById('restore-btn');
-    const restoreFileInput = document.getElementById('restore-file-input');
-    
-    if (restoreBtn && restoreFileInput) {
+    if (restoreBtn) {
       restoreBtn.addEventListener('click', () => {
+        const restoreFileInput = document.getElementById('restore-file-input');
         const file = restoreFileInput.files[0];
-        BackupService.importData(file);
+        if (!file) {
+          NotificationService.error('Please select a backup file.');
+          return;
+        }
+        this.showRestoreConfirmation(file);
       });
     }
+  }
+  static showRestoreConfirmation(file) {
+    const modal = document.getElementById('restore-confirm-modal');
+    const confirmInput = document.getElementById('restore-confirm-text');
+    const confirmBtn = document.getElementById('restore-confirm-btn');
+    if (!modal || !confirmInput || !confirmBtn) return;
+
+    confirmInput.value = '';
+    confirmBtn.disabled = true;
+    modal.classList.remove('hidden');
+
+    const handleConfirmation = () => {
+      confirmBtn.disabled = confirmInput.value !== 'RESTORE';
+    };
+
+    const handleRestore = () => {
+      modal.classList.add('hidden');
+      BackupService.performRestore(file);
+      // Clean up listeners to prevent memory leaks
+      confirmInput.removeEventListener('input', handleConfirmation);
+      confirmBtn.removeEventListener('click', handleRestore);
+    };
+
+    confirmInput.addEventListener('input', handleConfirmation);
+    confirmBtn.addEventListener('click', handleRestore);
   }
 }
 
