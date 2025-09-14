@@ -1802,69 +1802,72 @@ class App {
     console.log('Setting up global event listeners...');
     
     // --- Navigation ---
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        const page = item.getAttribute('data-page');
-        if (page) this.showPage(page);
-      });
+    document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const navItem = e.target.closest('.nav-item');
+      if (navItem && navItem.dataset.page) {
+        this.showPage(navItem.dataset.page);
+      }
     });
 
-    // --- Global Actions (Header, Quick Actions) ---
+    // --- Global Actions & Quick Actions ---
     document.getElementById('backup-btn')?.addEventListener('click', () => BackupService.exportData());
+    document.getElementById('menu-toggle')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
     document.getElementById('quick-create-invoice')?.addEventListener('click', () => InvoiceController.openModal());
     document.getElementById('quick-add-customer')?.addEventListener('click', () => CustomerController.openModal());
     document.getElementById('quick-add-product')?.addEventListener('click', () => ProductController.openModal());
-    document.getElementById('menu-toggle')?.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
-
-    // --- Page-Specific "Add" Buttons ---
+    
+    // --- Page-Level "Add" Buttons ---
     document.getElementById('add-customer-btn')?.addEventListener('click', () => CustomerController.openModal());
     document.getElementById('add-product-btn')?.addEventListener('click', () => ProductController.openModal());
     document.getElementById('create-invoice-btn')?.addEventListener('click', () => InvoiceController.openModal());
-    document.getElementById('stock-adjustment-btn')?.addEventListener('click', () => InventoryController.openAdjustmentModal());
-
-    // --- Form Submissions ---
-    document.getElementById('customer-form')?.addEventListener('submit', (e) => { e.preventDefault(); CustomerController.saveCustomer(); });
-    document.getElementById('product-form')?.addEventListener('submit', (e) => { e.preventDefault(); ProductController.saveProduct(); });
-    document.getElementById('invoice-form')?.addEventListener('submit', (e) => { e.preventDefault(); InvoiceController.saveInvoice(); });
+    
+    // --- Form Submissions (FIXED: Passing the 'e' event object) ---
+    document.getElementById('customer-form')?.addEventListener('submit', (e) => CustomerController.saveCustomer(e));
+    document.getElementById('product-form')?.addEventListener('submit', (e) => ProductController.saveProduct(e));
+    document.getElementById('invoice-form')?.addEventListener('submit', (e) => InvoiceController.saveInvoice(e));
     document.getElementById('stock-adjustment-form')?.addEventListener('submit', (e) => { e.preventDefault(); InventoryController.saveAdjustment(); });
     
-    const inventoryTbody = document.getElementById('inventory-tbody');
-    if (inventoryTbody) {
-      inventoryTbody.addEventListener('click', (e) => {
-        const target = e.target.closest('.expand-btn');
-        if (target) {
-          InventoryController.toggleTransactionHistory(target);
-        }
-      });
-    }
-    // --- Settings Page ---
+    // --- Settings, Reports, and other buttons ---
     document.getElementById('save-settings')?.addEventListener('click', () => SettingsController.saveSettings());
+    document.getElementById('fetch-gstin-data')?.addEventListener('click', () => CustomerController.fetchGstinData());
     
-    // --- Reports Page Listeners ---
     document.querySelector('.reports-grid')?.addEventListener('click', (e) => {
-      const reportType = e.target.dataset.report;
-      if (reportType === 'sales') ReportController.generateSalesReport();
-      else if (reportType === 'gst') ReportController.generateGstReport();
-      else if (reportType) NotificationService.info(`${reportType.toUpperCase()} report coming soon!`);
+      const reportBtn = e.target.closest('button[data-report]');
+      if (reportBtn) {
+        const reportType = reportBtn.dataset.report;
+        if (reportType === 'sales') ReportController.generateSalesReport();
+        else if (reportType === 'gst') ReportController.generateGstReport();
+        else NotificationService.info(`${reportType.toUpperCase()} report coming soon!`);
+      }
     });
     document.getElementById('close-report')?.addEventListener('click', () => document.getElementById('report-display').classList.add('hidden'));
     document.getElementById('print-report')?.addEventListener('click', () => ReportController.printReport());
     document.getElementById('download-report')?.addEventListener('click', () => ReportController.downloadReport());
 
+    // --- Inventory Page ---
+    document.getElementById('stock-adjustment-btn')?.addEventListener('click', () => InventoryController.openAdjustmentModal());
+    const inventoryTbody = document.getElementById('inventory-tbody');
+    if (inventoryTbody) {
+      inventoryTbody.addEventListener('click', (e) => {
+        const target = e.target.closest('.expand-btn');
+        if (target) InventoryController.toggleTransactionHistory(target);
+      });
+    }
+
     // --- Modal Closing Logic ---
-    document.querySelectorAll('.modal-close, [data-dismiss="modal"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    document.body.addEventListener('click', (e) => {
+      if (e.target.matches('.modal-close, [data-dismiss="modal"]')) {
         e.preventDefault();
-        const modal = btn.closest('.modal');
+        const modal = e.target.closest('.modal');
         if (modal) modal.classList.add('hidden');
-      });
+      }
+      if (e.target.matches('.modal')) {
+        e.target.classList.add('hidden');
+      }
     });
-    document.querySelectorAll('.modal').forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-      });
-    });
+    
+    // --- Global Keyboard Shortcuts ---
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal:not(.hidden)').forEach(modal => modal.classList.add('hidden'));
