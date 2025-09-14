@@ -1,6 +1,5 @@
 /**
- * BLAYe - Production-Ready GST Billing System
- * FIXED Version - All Critical Issues Resolved
+ * BLAYe - GST Billing System
  * Author: RabbitFoRed
  * ORG : THEOSTRICH
  * Date: September 2025
