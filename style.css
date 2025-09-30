@@ -1459,6 +1459,10 @@ select.form-control {
 }
 
 /* Customer/Product Details in Tables */
+#captcha-section {
+  grid-template-columns: 1fr auto auto; /* This will align the items correctly */
+  gap: 8px; /* Add a smaller gap */
+}
 .item-details {
   display: flex;
   flex-direction: column;
@@ -1852,6 +1856,7 @@ select.form-control {
 .modal-body {
   padding: var(--space-20);
   flex: 1;
+  padding-bottom: 45px;
 }
 
 .modal-footer {

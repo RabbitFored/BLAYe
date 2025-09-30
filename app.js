@@ -261,11 +261,6 @@ const STATES_OF_INDIA = [
   { "code": "19", "name": "WEST BENGAL" }
 ];
 
-
-// const COMPANY_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANwAAABNCAMAAABmDrNoAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAKeUExURQAAAAAAAAAAAAAAAAAAnwAAnQABAQAAoAAAoQAAogAAowADoAADnwADoQAGoQAGogEKoQILogILowcMpAgMpQoNpQoNpgwPpgwPpw4QqA4QqiUSqyQTqyUUqyUVrCUYriuZsyyaszaetjietyybuEKivkKjv0OkwEekwkmlxE+nxVCpx1OpzVaqzlyw0l+x0mGz1Ge31mi412q62G272W+92nHA3HPC3XbF33jG4XvH4XzI4n7J44DL5IDL5YHM5YLO54TO54bQ6YjR6YvS6o/U65LV7JbX7Zfa7pmdnp+goaGioqKjpKWlpqeoqKipqqqqq62trq+vr7CwsLGxsrKys7OztLW1tbe3t7i4uLm5ubq6uru7u7y8vL29vb6+vr+/v8DAwMHBwcLCwsPDw8TExMXFxcbGxsfHx8jIyMnJycrKysvLy8zMzM3Nzc7Ozs/Pz9DQ0NHR0dLS0tPT09TU1NXV1dbW1tfX19jY2NnZ2dra2tvb29zc3N3d3d7e3t/f3+Dg4OHh4eLi4uPj4+Tk5OXl5ebm5ufn5+jo6Onp6erq6uvr6+zs7O3t7e7u7u/v7/Dw8PHx8fLy8vPz8/T09PX19fb29vf39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///0Sc0ogAAABvdFJOU/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8AXwkyzAAAAAlwSFlzAAAXEQAAFxEByibzPwAABM1JREFUeF7tXeluE0EQbgoJgU1L2mQh2yS0u4Q0mpjELd0lu1uS3f3/3x1wLpWk9cK95i1l7jlnZv5s5pVERERERERERERERERERPR/U3/60+M0+3mS+tMbH7d1a/Mh+x49I/+hM//h464mFqfN+jO2T47R4/fX+fE/bB9D59/89s6+e2f811Lz1x5608s7L9/f/+D3/d++fW/r+sfnV7ffu64b/4a7fO/d7T3u/72zrx3XzeJ1/eGz//D2O48P//P57p+y+/3L/3s3fV84iFf/N++pP38xGMe1s3/9Y/mX75354//0VnU94bPx0aM373d+T3f/V04+l9H8zQe3+34+N6P3/v9L98b//bN+N/e2/fx3f//T7633/v+N/f2908+f/e7/s29/b17+8M//5v7++b29+69996rB/+bf+9s7+2ff+9s/343Vv/u3t69/e6r/Zt7++b2t9/92ztf7d/d299+19cO/s29fXN7++a+dm7/bt7euf3pL5+O//3pL59/t3/3bt7euX321/6Nvf3u/w9t/d/r/Xv723v72ztf7d983/j3u7/d+/rbu1/r327/7t65fXNfO5f/2797p99/651/7998V/f2/T+//Rsf3/s3n/vX/u5fvz8c35v39f/6135u/u7f/v7/9g9/3/8f/v5fP/9/f2/f/86P29/t3/vX27/7t/frb+/X27+/X/9u/+7f3q3v7es3v+v/3Rsfv72vf/u7e2/f+/s/v7ev/t29/f2D/3v37v4P//53//bOvnl/f2/f/3u//t298+W/fXPfOxf/9t6+w/97d28c1//2zs//n/rbr/k39/b1/+5r59a9e3e/+b98b9/+pE/H23v7+sf/+NdfPje/t+9e/e7euf3vvv3t3b3/v7d/1G77a//qf/tq5e2//1qf+ze/+7f3+X/9a/m//+r7xGz7e+d/u7d/9u3v723v7B3/n3r7e/u7fu3u/+zd/9//6t/f2f/5/7++b2z/8G+7t7+6/fO/+zb39g3+zb3+/d/d+/d/t3/3bv/vX23/v7du/+ze+e+/q3r37e/t7f2/f29f7O3v3z/7+X/9O/86P29/+wQ/8g3/wb+6/+7d+c/9+/869+8u/+d+9e/eXf3N/b1//x/0b92589+7eXf7Nff29+/v/u3/rN/cO/8G/+7fO/Rtf7959b//g39zdP/t2767+/N/du/u3b+4d/g13f/9///b+/M//y3/z335v/+Defv7fv63P/+v/fG//0B/+Db/2/w5n438f/N/t7//o/H/7B79u/+5/r3/3r7d/96/3b//gB/5O/869/YP/oG/8f/ev/9u/f/Bf79+/+4sfP/wXf+ff+v9O/86/82987179vXt/f+9ff//u//ze/Wtf//bv/f1+7f17f+/e+6t69+5+797dO/i/+zf/9t4+F//1z/zI+N9+f29//69/9/5u/u/+zb2Dr3/vXt7t39u/+1dvf+f+1t95/u69g6/+9d69e/e++v7evbv37n7rP/8uP/8vP/8HP/Af/sE/+Dfv/d17t//gB37gP/g3//b+/s2+9/8+uX/9W+/+7d/9W//6F//2zvv/+/3P/f82/t7Z+P/8+/u/e/fufevvb+9++v1v/d+/v/X43fX51z/zv/6N//0//4Nf+/Vv//z/7e69c18/1/nxb/5Xv23s7//vP/v6v9u//2D437/0+N1ff+d+7P/9v/5/b/z4+X39+1/9+/7/7/u/+1f/7h8693d+/G/9v7+3b/x+//7XP/+3X7/9n+s3vvf9f/G/f/fu//X/9v1z/d+9/c+Pv/vXf//v/0P9+v//739/7//g/71/85/7V//6V//mv/61/8U/+Pz7+r+/e+ceXl5q7x4eHh5e+yP//r3H+tVve3d/7179r+fNf/H7t3/r9z9y79/t/f0//z/7O/8/Hh627x/22v8tN69829t8b3/v3v3tP/+/+7d+9+/2v7ev/tXf+fevvzX46/f/3t3v//XvP/ev/t3/3X+z//f+zb/3/+D///f+vf+9f2v+/1/9G/du7+7t2x//0b//+7/+v7V//w//1v8t/179/+H+vf/F/+qXv/iv/dVv/sN/69/q3/3bf/0H/3/9u3/3r/5rf2//+i/+/v6tX//uP/nxf339v/79/f1/r3737/7e3//bf/2v/3Zvf+ff+b+/+3fv3f/v//2X/+I//Bv+P5//Ff8//o3/9W/8/t7b3+3fuf+lR+7f3/vX//1v/f5Xf7u3v3fv/j//7u/tv7Wv/+v79+5+/Qd/5/6tf/X/9X+X//av/8v//n9v/+D/7v8f/uv/6/+t/+v//n/+P/6t//3X//9+//+//xf/+v/+X/z//v/9//5P/uv/0X/9H/3f/8//+//y/9u393/85/q//0//79O/eu/8//+n/+v5+PiP//H03Hn+4z/+46f/+On/0yPi3z//+N0/evyPiL/7H5/+/OP/D4mIiIiIiIiIiIiIiIj6z+g/f6eT8/h/c7cAAAAASUVORK5CYII=';
-
-
-// Notification System
 class NotificationService {
   static show(message, type = 'info', duration = 5000) {
     const container = document.getElementById('notification-container');
@@ -448,7 +443,18 @@ class DatabaseService {
       console.error('Failed to update setting:', error);
     }
   }
-  
+  static async performFactoryReset() {
+    LoadingService.show('Resetting application...');
+    try {
+      await db.delete(); // Delete the entire database
+      NotificationService.success('Application has been reset and will now reload.');
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+      console.error('Factory reset failed:', error);
+      NotificationService.error('Failed to reset the application.');
+      LoadingService.hide();
+    }
+  }
 }
 
 // ENHANCED GSTIN Service
@@ -3572,7 +3578,10 @@ class ReportController {
 
 // FIXED: Settings Controller with immediate header update
 class SettingsController {
+  static hasResetListener = false;
+
   static async loadPage() {
+    this.setupEventListeners();
     try {
       this.populateStates('company-state');
       const company = appState.company || await db.companies.orderBy('id').first();
@@ -3705,6 +3714,42 @@ class SettingsController {
       option.textContent = `${state.code} - ${state.name}`;
       select.appendChild(option);
     });
+  }
+  static setupEventListeners() {
+    if (this.hasResetListener) return;
+
+    document.addEventListener('keydown', (e) => {
+      if (appState.currentPage === 'settings' && e.ctrlKey && e.shiftKey && e.key === 'Delete') {
+        e.preventDefault();
+        this.showResetConfirmation();
+      }
+    });
+    this.hasResetListener = true;
+  }
+  static showResetConfirmation() {
+    const modal = document.getElementById('factory-reset-modal');
+    const confirmInput = document.getElementById('reset-confirm-text');
+    const confirmBtn = document.getElementById('reset-confirm-btn');
+    if (!modal || !confirmInput || !confirmBtn) return;
+
+    confirmInput.value = '';
+    confirmBtn.disabled = true;
+    modal.classList.remove('hidden');
+
+    const handleConfirmation = () => {
+      confirmBtn.disabled = confirmInput.value !== 'RESET ALL';
+    };
+
+    const handleReset = () => {
+      modal.classList.add('hidden');
+      DatabaseService.performFactoryReset();
+      // Clean up listeners to prevent memory leaks
+      confirmInput.removeEventListener('input', handleConfirmation);
+      confirmBtn.removeEventListener('click', handleReset);
+    };
+
+    confirmInput.addEventListener('input', handleConfirmation);
+    confirmBtn.addEventListener('click', handleReset);
   }
 }
 
