@@ -14,7 +14,7 @@ const BACKEND_URL = 'https://gst-api.theostrich.eu.org/api/v1';
 
 
 db.version(1).stores({
-  companies: '++id, gstin, name, state, state_code, beneficiaryName, accountNumber, ifscCode, bankName, branch, created_at',
+  companies: '++id, gstin, name, state, state_code, address, city, pincode, beneficiaryName, accountNumber, ifscCode, bankName, branch, created_at',
   customers: '++id, name, gstin, aadhar, phone, email, state_code, created_at',
   products: '++id, name, hsn_code, category, stock_quantity, min_stock, rate,  unit, gst_rate, created_at',
   invoices: '++id, invoice_number, customer_id, date, total, amount_paid, payment_status, created_at',
@@ -368,9 +368,7 @@ class DatabaseService {
       };
       
       appState.company = {
-        id: 1,
-        name: 'BLAYe',
-        gstin: '24ABOPK8249G1ZC'
+        id: 1
       };
       
       appState.updateHeaderTitle(appState.company.name);
@@ -394,206 +392,22 @@ class DatabaseService {
     try {
       // Company data
       console.log('Seeding initial data...');
-      const company = {
-        gstin: '24ABOPK8249G1ZC',
-        aadhar: '',
-        name: 'BLAYe',
-        legal_name: 'OSTRICH Private Limited',
-        address: 'Plot No 4, Abdulla Park, Rander Road, Nr Muskan Raw House',
-        city: 'Surat',
-        state: 'Gujarat',
-        pincode: '395009',
-        state_code: '24',
-        phone: '9825110717',
-        email: 'BLAYe@gmail.com',
-        created_at: new Date()
-      };
-      
+
+      const company = {};
       await db.companies.add(company);
 
-      // Sample customers
-      const customers = [
-       /* {
-          name: 'Sri Vaari Tex',
-          gstin: '33AFQFS4393P1Z0',
-          aadhar: '',
-          address: 'D.No. 63/29, Nesavalar Colony, 2nd Street',
-          city: 'Tirupur',
-          state: 'Tamil Nadu',
-          pincode: '641602',
-          state_code: '33',
-          phone: '9876543210',
-          email: 'srivaaritex@gmail.com',
-          created_at: new Date()
-        },
-        {
-          name: 'Golden Textiles',
-          gstin: '',
-          aadhar: '1234 5678 9012',
-          address: 'Shop 15, Textile Market',
-          city: 'Mumbai',
-          state: 'Maharashtra',
-          pincode: '400001',
-          state_code: '27',
-          phone: '9123456789',
-          email: 'golden@gmail.com',
-          created_at: new Date()
-        },
-        {
-          name: 'Raj Enterprises',
-          gstin: '',
-          address: '123, Market Street, Local Area',
-          city: 'Surat',
-          state: 'Gujarat',
-          pincode: '395009',
-          state_code: '24',
-          phone: '9988776655',
-          email: '',
-          created_at: new Date()
-        } */
-      ];
-
+      const customers = [];
       await db.customers.bulkAdd(customers);
 
-      // Sample products
-      const products = [
-       /* {
-          name: 'Karara Spandex',
-          hsn_code: '60063100',
-          category: 'Fabric',
-          unit: 'KGS',
-          rate: 175.00,
-          gst_rate: 5,
-          stock_quantity: 1500,
-          min_stock: 100,
-          created_at: new Date()
-        },
-        {
-          name: 'Cotton Fabric Premium',
-          hsn_code: '52081200',
-          category: 'Fabric',
-          unit: 'MTR',
-          rate: 85.00,
-          gst_rate: 5,
-          stock_quantity: 2500,
-          min_stock: 200,
-          created_at: new Date()
-        },
-        {
-          name: 'Polyester Blend',
-          hsn_code: '54071000',
-          category: 'Fabric',
-          unit: 'KGS',
-          rate: 120.00,
-          gst_rate: 12,
-          stock_quantity: 800,
-          min_stock: 50,
-          created_at: new Date()
-        },
-        {
-          name: 'Silk Fabric Royal',
-          hsn_code: '50079900',
-          category: 'Fabric',
-          unit: 'MTR',
-          rate: 350.00,
-          gst_rate: 5,
-          stock_quantity: 300,
-          min_stock: 25,
-          created_at: new Date()
-        },
-        {
-          name: 'Denim Fabric',
-          hsn_code: '52111100',
-          category: 'Fabric',
-          unit: 'MTR',
-          rate: 95.00,
-          gst_rate: 12,
-          stock_quantity: 25,
-          min_stock: 100,
-          created_at: new Date()
-        }*/
-      ];
-
+      const products = [];
       await db.products.bulkAdd(products);
 
-      // Sample invoices
-      const invoices = [
-        /*{
-          invoice_number: 'INV720',
-          customer_id: 1,
-          date: '2024-12-06',
-          items: [
-            {
-              product_id: 1,
-              name: 'Karara Spandex',
-              hsn_code: '60063100',
-              quantity: 100,
-              unit: 'KGS',
-              rate: 175.00,
-              amount: 17500,
-              gst_rate: 5,
-              tax_amount: 875
-            }
-          ],
-          subtotal: 17500,
-          tax_amount: 875,
-          total_amount: 18375,
-          payment_status: 'pending',
-          created_at: new Date()
-        },
-        {
-          invoice_number: 'INV721',
-          customer_id: 2,
-          date: '2024-12-05',
-          items: [
-            {
-              product_id: 2,
-              name: 'Cotton Fabric Premium',
-              hsn_code: '52081200',
-              quantity: 500,
-              unit: 'MTR',
-              rate: 85.00,
-              amount: 42500,
-              gst_rate: 5,
-              tax_amount: 2125
-            }
-          ],
-          subtotal: 42500,
-          tax_amount: 2125,
-          total_amount: 44625,
-          payment_status: 'pending',
-          created_at: new Date()
-        },
-        {
-          invoice_number: 'INV722',
-          customer_id: 3,
-          date: '2024-11-20',
-          items: [
-            {
-              product_id: 3,
-              name: 'Polyester Blend',
-              hsn_code: '54071000',
-              quantity: 50,
-              unit: 'KGS',
-              rate: 120.00,
-              amount: 6000,
-              gst_rate: 12,
-              tax_amount: 720
-            }
-          ],
-          subtotal: 6000,
-          tax_amount: 720,
-          total_amount: 6720,
-          payment_status: 'paid',
-          created_at: new Date()
-        }*/
-      ];
-
+      const invoices = [];
       await db.invoices.bulkAdd(invoices);
 
       // Default settings
       const defaultSettings = [
-        { key: 'next_invoice_number', value: '723', updated_at: new Date() },
+        { key: 'next_invoice_number', value: '1', updated_at: new Date() },
         { key: 'invoice_prefix', value: 'INV', updated_at: new Date() },
         { key: 'payment_terms', value: '30', updated_at: new Date() },
         { key: 'terms_conditions', value: 'Payment due within 30 days. Subject to Surat jurisdiction.', updated_at: new Date() },
@@ -634,6 +448,7 @@ class DatabaseService {
       console.error('Failed to update setting:', error);
     }
   }
+  
 }
 
 // ENHANCED GSTIN Service
@@ -786,7 +601,7 @@ class InvoiceService {
       if (!invoice) throw new Error('Invoice not found');
 
       const customer = await db.customers.get(invoice.customer_id);
-      const company = appState.company || await db.companies.orderBy('id').first();
+      const company = appState.company || {}; 
       
       const isInterState = customer.state_code !== company.state_code;
 
@@ -835,11 +650,11 @@ class InvoiceService {
       return `
         <div class="invoice-print-header">
           <div class="company-details">
-            <h2>${Utils.sanitizeHtml(company?.name || 'BLAYe')}</h2>
-            <p>${Utils.sanitizeHtml(company?.address || '')}</p>
-            <p>${Utils.sanitizeHtml(company?.city || '')}, ${Utils.sanitizeHtml(company?.state || '')} - ${company?.pincode || ''}</p>
-            <p>Phone: ${company?.phone || ''} | Email: ${company?.email || ''}</p>
-            <p><strong>GSTIN: ${company?.gstin || ''}</strong></p>
+            <h2>${Utils.sanitizeHtml(company.name || '')}</h2>
+            <p>${Utils.sanitizeHtml(company.address || '')}</p>
+            <p>${Utils.sanitizeHtml(company.city || '')}, ${Utils.sanitizeHtml(company.state || '')} - ${Utils.sanitizeHtml(company.pincode || '')}</p>
+            <p>Phone: ${company.phone || ''} | Email: ${company.email || ''}</p>
+            <p><strong>GSTIN: ${company.gstin || ''}</strong></p>
           </div>
           <div class="invoice-info">
             <h3>TAX INVOICE</h3>
@@ -921,7 +736,7 @@ class PDFService {
 
       const invoice = await db.invoices.get(invoiceId);
       const customer = await db.customers.get(invoice.customer_id);
-      const company = appState.company || await db.companies.orderBy('id').first();
+      const company = appState.company || {};
       
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
@@ -948,8 +763,8 @@ class PDFService {
       doc.setFont(undefined, 'normal');
       
       // Centered Company Details with consistent spacing
-      const addressLine1 = company?.address || 'Plot No 4, Abdulla Park, Rander Road, Nr Muskan Raw House';
-      const addressLine2 = `${company?.city || 'SURAT'} ${company?.pincode || '395009'} ${company?.state || 'GUJARAT'} State Code: ${company?.state_code || '24'}`;
+      const addressLine1 = String(company.address ?? '');
+      const addressLine2 = `${String(company.city ?? '')} ${String(company.pincode ?? '')} ${String(company.state ?? '')}`;
       doc.text(addressLine1, pageWidth / 2, headerY, { align: 'center' });
       headerY += lineSpacing;
       doc.text(addressLine2, pageWidth / 2, headerY, { align: 'center' });
@@ -958,7 +773,7 @@ class PDFService {
       doc.text(`GSTIN: ${company?.gstin || 'N/A'}`, pageWidth / 2, headerY, { align: 'center' });
       headerY += lineSpacing;
       doc.setFont(undefined, 'normal');
-      const companyContact = `Phone: ${company?.phone || '9825110717'} Email: ${company?.email || ''}`;
+      const companyContact = `Phone: ${String(company.phone ?? '')} Email: ${String(company.email ?? '')}`;
       doc.text(companyContact, pageWidth / 2, headerY, { align: 'center' });
 
       // Perfectly centered "TAX INVOICE" section
@@ -1144,12 +959,13 @@ class PDFService {
       const lineSpacing = 5;
       doc.setFontSize(18);
       doc.setFont(undefined, 'bold');
-      doc.text(company.name?.toUpperCase() || 'BLAYe', pageWidth / 2, headerY, { align: 'center' });
+      doc.text(String(company.name?.toUpperCase() ?? ''), pageWidth / 2, headerY, { align: 'center' });
       headerY += lineSpacing + 2;
       doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
-      const addressLine1 = company.address || '';
-      const addressLine2 = `${company.city || ''} ${company.pincode || ''} ${company.state || ''}`;
+      const addressLine1 = String(company.address ?? '');
+      const addressLine2 = `${String(company.city ?? '')} ${String(company.pincode ?? '')} ${String(company.state ?? '')}`;
+  
       doc.text(addressLine1, pageWidth / 2, headerY, { align: 'center' });
       headerY += lineSpacing;
       doc.text(addressLine2, pageWidth / 2, headerY, { align: 'center' });
@@ -3768,7 +3584,9 @@ class SettingsController {
           'company-phone': company.phone,
           'company-email': company.email,
           'company-address': company.address,
+          'company-city': company.city,
           'company-state': company.state_code,
+          'company-pincode': company.pincode,
           'company-beneficiary': company.beneficiaryName,
           'company-bank-name': company.bankName,
           'company-account-number': company.accountNumber,
@@ -3822,8 +3640,10 @@ class SettingsController {
         phone: document.getElementById('company-phone')?.value.trim() || '',
         email: document.getElementById('company-email')?.value.trim() || '',
         address: document.getElementById('company-address')?.value.trim() || '',
+        city: document.getElementById('company-city')?.value.trim() || '',
         state_code: stateSelect.value,
         state: selectedOption.text.includes(' - ') ? selectedOption.text.split(' - ')[1] : selectedOption.text,
+        pincode: document.getElementById('company-pincode')?.value.trim() || '',
         beneficiaryName: document.getElementById('company-beneficiary')?.value.trim() || '',
         bankName: document.getElementById('company-bank-name')?.value.trim() || '',
         accountNumber: document.getElementById('company-account-number')?.value.trim() || '',
@@ -3847,7 +3667,7 @@ class SettingsController {
         });
         appState.company = { id: companyId, ...companyData };
       }
-
+      await DatabaseService.loadCompanyInfo();
       // FIXED: Update header immediately
       appState.company = { ...appState.company, ...companyData };
       appState.updateHeaderTitle(companyName);
@@ -3874,7 +3694,7 @@ class SettingsController {
     }
   }
 
-    static populateStates(selectElementId) {
+  static populateStates(selectElementId) {
     const select = document.getElementById(selectElementId);
     if (!select) return;
 
