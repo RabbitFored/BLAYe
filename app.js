@@ -2107,25 +2107,16 @@ class CustomerController {
       const stateSelect = document.getElementById('customer-state');
       const selectedOption = stateSelect.options[stateSelect.selectedIndex];
       const customerData = {
-        // customers: '++id, name, gstin, aadhar, phone, email, state_code, created_at',
         name: document.getElementById('customer-name').value.trim(),
         phone: document.getElementById('customer-phone').value.trim(),
         email: document.getElementById('customer-email').value.trim(),
-        // created_at: new Date() 
-
-        gstin: document.getElementById('customer-gstin').value.trim(),
+        gstin: document.getElementById('customer-gstin').value.trim().toUpperCase(),
         aadhar: document.getElementById('customer-aadhar').value.trim(),
         address: document.getElementById('customer-address').value.trim(),
         city: document.getElementById('customer-city').value.trim(),
         state: selectedOption.text.includes(' - ') ? selectedOption.text.split(' - ')[1] : selectedOption.text,
         state_code: stateSelect.value,
         pincode: document.getElementById('customer-pincode').value.trim()
-
-
-
-        //address: document.getElementById('customer-address').value.trim(),
-        //city: document.getElementById('customer-city').value.trim(),
-        //state: document.getElementById('customer-state').value.trim()
       };
 
       if (!customerData.name) {
@@ -2387,8 +2378,8 @@ class ProductController {
     unit: document.getElementById('product-unit').value,
     rate: parseFloat(document.getElementById('product-rate').value),
     gst_rate: parseInt(document.getElementById('product-gst').value),
-    stock_quantity: parseInt(document.getElementById('product-opening-stock').value),
-    min_stock: parseInt(document.getElementById('product-min-stock').value),
+    stock_quantity: parseFloat(document.getElementById('product-opening-stock').value),
+    min_stock: parseFloat(document.getElementById('product-min-stock').value),
     category: document.getElementById('product-category').value
         //created_at: new Date()
       };
@@ -3645,7 +3636,7 @@ class SettingsController {
 
       const companyData = {
         name: companyName,
-        gstin: document.getElementById('company-gstin')?.value.trim() || '',
+        gstin: document.getElementById('company-gstin')?.value.trim().toUpperCase() || '',
         phone: document.getElementById('company-phone')?.value.trim() || '',
         email: document.getElementById('company-email')?.value.trim() || '',
         address: document.getElementById('company-address')?.value.trim() || '',

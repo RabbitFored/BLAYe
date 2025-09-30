@@ -606,6 +606,7 @@ pre code {
   cursor: not-allowed;
 }
 
+
 /* Form elements */
 .form-control {
   display: block;
@@ -636,6 +637,11 @@ select.form-control {
   background-position: right var(--space-12) center;
   background-size: 16px;
   padding-right: var(--space-32);
+}
+
+/* Force GSTIN input to appear as uppercase */
+#customer-gstin, #company-gstin {
+  text-transform: uppercase;
 }
 
 /* Add a dark mode specific caret */
