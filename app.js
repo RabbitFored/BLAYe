@@ -17,7 +17,7 @@ db.version(1).stores({
   companies: '++id, gstin, name, state, state_code, address, city, pincode, beneficiaryName, accountNumber, ifscCode, bankName, branch, created_at',
   customers: '++id, name, gstin, aadhar, phone, email, state_code, created_at',
   products: '++id, name, hsn_code, category, stock_quantity, min_stock, rate,  unit, gst_rate, created_at',
-  invoices: '++id, invoice_number, customer_id, date, total, amount_paid, payment_status, created_at',
+  invoices: '++id, invoice_number, customer_id, date, total_amount, amount_paid, payment_status, created_at',
   payments: '++id, invoice_id, amount, payment_method, payment_date, created_at',
   inventory_transactions: '++id, product_id, transaction_type, quantity, reference_id, created_at',
   settings: '++id, key, value, updated_at',
@@ -559,14 +559,15 @@ class InvoiceService {
   static async createInvoice(invoiceData) {
     try {
       const invoice = {
+        ...invoiceData,
         invoice_number: await this.getNextInvoiceNumber(),
-        customer_id: invoiceData.customer_id,
-        date: invoiceData.date,
-        items: invoiceData.items,
-        subtotal: invoiceData.subtotal,
-        tax_amount: invoiceData.tax_amount,
-        total_amount: invoiceData.total_amount,
-        payment_status: 'pending',
+        //customer_id: invoiceData.customer_id,
+        //date: invoiceData.date,
+        //items: invoiceData.items,
+        //subtotal: invoiceData.subtotal,
+        //tax_amount: invoiceData.tax_amount,
+        //total_amount: invoiceData.total_amount,
+        //payment_status: 'pending',
         created_at: new Date()
       };
 
@@ -611,11 +612,18 @@ class InvoiceService {
       
       const isInterState = customer.state_code !== company.state_code;
 
+      // --- 1. Item Table Generation ---
       let itemsHTML = '';
       for (let i = 0; i < invoice.items.length; i++) {
         const item = invoice.items[i];
-        const itemTotal = item.amount || Utils.calculateAmount(item.quantity, item.rate);
+        const itemTotal = item.netAmount ?? Utils.calculateAmount(item.quantity, item.rate);
         
+        let discountText = '-';
+        if (item.discount && item.discount.value > 0) {
+                discountText = item.discount.type === 'percentage'
+                    ? `${item.discount.value}%`
+                    : Utils.formatCurrency(item.discount.value);
+            }
         itemsHTML += `
           <tr>
             <td>${i + 1}</td>
@@ -625,12 +633,13 @@ class InvoiceService {
             </td>
             <td>${item.quantity} ${item.unit || 'PCS'}</td>
             <td class="text-right">${Utils.formatCurrency(item.rate)}</td>
-            <td class="text-right">${item.gst_rate}%</td>
+            <td class="text-right">${discountText}</td> <td class="text-right">${item.gst_rate}%</td>
             <td class="text-right"><strong>${Utils.formatCurrency(itemTotal)}</strong></td>
           </tr>
         `;
       }
-      
+
+      // --- 2. Tax Rows Calculation ---
       let taxRows = '';
       if (isInterState) {
         taxRows = `
@@ -653,6 +662,7 @@ class InvoiceService {
         `;
       }
 
+      // --- 3. Final HTML Assembly ---
       return `
         <div class="invoice-print-header">
           <div class="company-details">
@@ -681,32 +691,37 @@ class InvoiceService {
           </div>
         </div>
 
-        <table class="invoice-items-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Description</th>
-              <th>Qty</th>
-              <th class="text-right">Rate</th>
-              <th class="text-right">GST%</th>
-              <th class="text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHTML}</tbody>
-        </table>
+       <table class="invoice-items-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th class="text-right">Rate</th>
+                <th class="text-right">Discount</th>
+                <th class="text-right">GST%</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>${itemsHTML}</tbody>
+          </table>
 
-        <div class="invoice-totals-print">
-          <div class="total-row">
-            <span>Subtotal:</span>
-            <span>${Utils.formatCurrency(invoice.subtotal || 0)}</span>
-          </div>
-          ${taxRows}
-          <div class="total-row total-final">
-            <span>Total Amount:</span>
-            <span>${Utils.formatCurrency(invoice.total_amount || 0)}</span>
-          </div>
-        </div>
-        
+<div class="invoice-totals-print">
+                <div class="total-row">
+                    <span>Subtotal:</span>
+                    <span>${Utils.formatCurrency(invoice.subtotal || 0)}</span>
+                </div>
+                ${invoice.totalDiscount && invoice.totalDiscount > 0 ? `
+                <div class="total-row">
+                    <span>Discount:</span>
+                    <span class="text-success">- ${Utils.formatCurrency(invoice.totalDiscount)}</span>
+                </div>` : ''}
+                ${taxRows}
+                <div class="total-row total-final">
+                    <span>Total Amount:</span>
+                    <span>${Utils.formatCurrency(invoice.total_amount || 0)}</span>
+                </div>
+            </div>
         <div class="invoice-footer" style="margin-top: 16px;">
             <p><strong>Amount in Words:</strong> ${Utils.amountInWords(invoice.total_amount || 0)}</p>
         </div>
@@ -820,25 +835,30 @@ class PDFService {
       doc.text(`${Utils.formatDate(invoice.date)}`, rightColumnX + 26, customerY + 12);
       
       const tableStartY = customerMetaY + 10;
-      const head = [['#', 'Description', 'HSN', 'Qty', 'Rate', 'GST%', 'Total (INR)']];
+      const head = [['#', 'Description', 'HSN', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
       const body = invoice.items.map((item, index) => {
-        const itemTotal = item.amount || Utils.calculateAmount(item.quantity, item.rate);
+        const itemTotal = item.netAmount; // Use the saved net amount
+        let discountText = '-';
+        if (item.discount && item.discount.value > 0) {
+            discountText = item.discount.type === 'percentage' ? `${item.discount.value}%` : item.discount.value.toFixed(2);
+        }
         return [
-          index + 1, item.name, item.hsn_code || 'N/A',
-          `${item.quantity} ${item.unit}`,
-          item.rate.toFixed(2), `${item.gst_rate}%`, itemTotal.toFixed(2)
+            index + 1, item.name, item.hsn_code || 'N/A',
+            `${item.quantity} ${item.unit}`, item.rate.toFixed(2),
+            discountText, // NEW data cell
+            `${item.gst_rate}%`, itemTotal.toFixed(2)
         ];
-      });
+    });
 
       doc.autoTable({
         head: head, body: body, startY: tableStartY,
-        theme: 'grid',
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold' },
-        styles: { fontSize: 8, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+        // ... (theme and headStyles) ...
+        styles: { fontSize: 8, cellPadding: 2, /* ... */ },
         columnStyles: {
-          3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'center' }, 6: { halign: 'right' }
+            // UPDATED: Column indices have shifted
+            4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'center' }, 7: { halign: 'right' }
         }
-      });
+    });
       
       // --- PDF Footer ---
       
@@ -868,13 +888,20 @@ class PDFService {
       // --- Column 2: Totals Section ---
       const formatNumber = (num) => (num || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const exactTotal = invoice.subtotal + invoice.tax_amount;
-      const roundedTotal = Math.round(exactTotal);
-      const roundOff = roundedTotal - exactTotal;
+      const roundedTotal = Math.round(invoice.total_amount);
+      const roundOff = roundedTotal - invoice.total_amount;
       let rightY = finalY + 5;
       doc.setFontSize(9);
-      doc.text('Taxable Rs.', rightColX - 45, rightY);
+      doc.text('Subtotal Rs.', rightColX - 45, rightY);
       doc.text(formatNumber(invoice.subtotal), rightColX, rightY, { align: 'right' });
       rightY += 5;
+
+      if (invoice.totalDiscount > 0) {
+        doc.text('Discount', rightColX - 45, rightY);
+        doc.text(`- ${formatNumber(invoice.totalDiscount)}`, rightColX, rightY, { align: 'right' });
+        rightY += 5;
+      }
+
       const isInterState = customer.state_code !== company.state_code;
       if (isInterState) {
         doc.text('+ IGST', rightColX - 45, rightY);
@@ -891,6 +918,8 @@ class PDFService {
         doc.text(formatNumber(sgst), rightColX, rightY, { align: 'right' });
         rightY += 5;
     }
+    
+      
       doc.text('Round Off', rightColX - 45, rightY);
       doc.text(roundOff.toFixed(2), rightColX, rightY, { align: 'right' });
       doc.line(rightColX - 60, rightY + 2, rightColX, rightY + 2);
@@ -2953,7 +2982,7 @@ static calculateTotals() {
     
     const customerId = document.getElementById('invoice-customer')?.value;
     const invoiceDate = document.getElementById('invoice-date')?.value;
-    const dueDate = document.getElementById('invoice-due-date')?.value;
+    //const dueDate = document.getElementById('invoice-due-date')?.value;
 
     if (!customerId) {
       NotificationService.error('Please select a customer');
@@ -2968,9 +2997,10 @@ static calculateTotals() {
     // Collect items
     const rows = document.querySelectorAll('.item-row');
     const items = [];
-    let subtotal = 0;
-    let totalGST = 0;
+    let grossSubtotal = 0;
+    let totalItemDiscount = 0;
 
+    // --- A. Process each item row to capture all data, including discounts ---
     for (const row of rows) {
       const productSelect = row.querySelector('.product-select');
       const quantityInput = row.querySelector('.quantity-input');
@@ -2980,6 +3010,10 @@ static calculateTotals() {
         continue;
       }
 
+      const discountValueInput = row.querySelector('.discount-value-input');
+      const discountValue = discountValueInput ? parseFloat(discountValueInput.value) || 0 : 0;
+      const discountType = row.querySelector('.discount-type-select')?.value || 'percentage';
+
       try {
         const productId = parseInt(productSelect.value);
         const product = await db.products.get(productId);
@@ -2987,7 +3021,22 @@ static calculateTotals() {
         
         const quantity = parseFloat(quantityInput.value);
         const rate = parseFloat(rateInput.value);
+
+        const lineTotal = Utils.calculateAmount(quantity, rate);
+        grossSubtotal += lineTotal;
+
+        let itemDiscountAmount = 0;
+        if (discountValue > 0) {
+                itemDiscountAmount = (discountType === 'percentage')
+                    ? (lineTotal * discountValue / 100)
+                    : discountValue;
+            }
+        totalItemDiscount += itemDiscountAmount;
+
+        
+        
         const amount = Utils.calculateAmount(quantity, rate);
+        const netAmount = lineTotal - itemDiscountAmount;
         const gstAmount = Utils.calculateGST(amount, product.gst_rate);
 
         items.push({
@@ -2997,13 +3046,16 @@ static calculateTotals() {
           quantity: quantity,
           unit: product.unit,
           rate: rate,
-          amount: amount,
+          discount: { type: discountType, value: discountValue },
+          discountAmount: itemDiscountAmount,
+          netAmount: netAmount,
+          amount: lineTotal,
           gst_rate: product.gst_rate,
           tax_amount: gstAmount
         });
 
-        subtotal += amount;
-        totalGST += gstAmount;
+        //subtotal += amount;
+        //totalGST += gstAmount;
       } catch (error) {
         console.error('Error processing item:', error);
         continue;
@@ -3015,16 +3067,41 @@ static calculateTotals() {
       return;
     }
 
+    // --- B. Process invoice-level discount and recalculate total GST ---
+    const invoiceDiscountValue = parseFloat(document.getElementById('invoice-discount-value')?.value) || 0;
+    const invoiceDiscountType = document.getElementById('invoice-discount-type')?.value || 'percentage';
+    let invoiceDiscountAmount = 0;
+    if (invoiceDiscountValue > 0) {
+        invoiceDiscountAmount = invoiceDiscountType === 'percentage'
+            ? (grossSubtotal * invoiceDiscountValue / 100)
+            : invoiceDiscountValue;
+    }
+    
+    // Recalculate total GST based on the final discounted values
+    let totalGST = 0;
+    items.forEach(item => {
+        const proportionOfTotal = grossSubtotal > 0 ? item.amount / grossSubtotal : 0;
+        const finalItemValue = item.netAmount - (invoiceDiscountAmount * proportionOfTotal);
+        totalGST += Utils.calculateGST(finalItemValue, item.gst_rate);
+    });
+
+    // --- C. Construct the final invoice object ---
+    const totalDiscount = totalItemDiscount + invoiceDiscountAmount;
+    const netSubtotal = grossSubtotal - totalDiscount;
     try {
       const invoiceData = {
         customer_id: parseInt(customerId),
         date: invoiceDate,
         items: items,
-        subtotal: subtotal,
+        subtotal: grossSubtotal,
+        totalDiscount: totalDiscount,
+        netSubtotal: netSubtotal, // Taxable value
         tax_amount: totalGST,
-        total_amount: subtotal + totalGST
+        total_amount: netSubtotal + totalGST,
+        payment_status: 'pending',
+        amount_paid: 0
       };
-
+//invoices: '++id, invoice_number, customer_id, date, total, amount_paid, payment_status, created_at',
       const result = await InvoiceService.createInvoice(invoiceData);
       
       if (result.success) {
