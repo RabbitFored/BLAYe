@@ -1900,6 +1900,18 @@ select.form-control {
   background: var(--color-bg-8);
 }
 /* Invoice Form Styles */
+.item-headers {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1.5fr 1.25fr 40px; /* Must match .item-grid */
+  gap: var(--space-12);
+  padding: 0 var(--space-12) var(--space-8) var(--space-12);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-card-border-inner);
+  margin-bottom: var(--space-12);
+}
+
 .invoice-header-section {
   margin-bottom: var(--space-24);
   padding-bottom: var(--space-16);
@@ -1931,23 +1943,23 @@ select.form-control {
 
 .item-grid {
   display: grid;
-  grid-template-columns: 2fr 120px 120px 120px 60px;
+  grid-template-columns: 3fr 1fr 1fr 1.5fr 1.25fr 40px; /* Must match .item-headers */
   gap: var(--space-12);
-  align-items: center;
+  align-items: center; /* Vertically align items in the center of the row */
 }
 
+.item-grid .form-group {
+  margin-bottom: 0; /* Override default form-group margin */
+}
 .item-actions {
   display: flex;
   justify-content: center;
 }
 
 .add-item {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius-base);
 }
 
 .remove-item {

@@ -11,6 +11,15 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {},
     },
+   // {
+   //   name: '@electron-forge/maker-wix', // NEW: This makes the .msi
+   //   config: {
+   //     ui: {
+   //       chooseDirectory: true
+   //     },
+   //     manufacturer: 'THE OSTRICH inc.' // Add your name here
+   //   }
+   // },
     {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin'],

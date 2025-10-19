@@ -677,6 +677,7 @@ class InvoiceService {
             <p>${Utils.sanitizeHtml(customer?.city || '')}, ${Utils.sanitizeHtml(customer?.state || '')}</p>
             <p>Phone: ${customer?.phone || ''}</p>
             ${customer?.gstin ? `<p><strong>GSTIN: ${customer.gstin}</strong></p>` : ''}
+            ${customer?.aadhar ? `<p>Aadhar No.: ${customer.aadhar}</p>` : ''}
           </div>
         </div>
 
@@ -734,12 +735,6 @@ class InvoiceService {
 
 class PDFService {
   static async generateInvoiceDoc(invoiceId) {
-  //  try {
-  //    if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF.API.autoTable !== 'function') {
-  //      NotificationService.warning('PDF library not fully loaded. Please check internet and try again.');
-  //      return;
-  //    }
-
       const invoice = await db.invoices.get(invoiceId);
       const customer = await db.customers.get(invoice.customer_id);
       const company = appState.company || {};
@@ -810,8 +805,11 @@ class PDFService {
       doc.text(addressLines, 15, customerY + 11);
       let customerMetaY = customerY + 11 + (addressLines.length * 4) + 2;
       doc.text(`GSTIN: ${customer?.gstin || 'N/A'}`, 15, customerMetaY);
-      doc.text(`Aadhar No.: ${customer?.aadhar || 'N/A'}`, 15, customerMetaY + 5);
-
+      customerMetaY += 5;
+      if (customer?.aadhar) {
+        doc.text(`Aadhar No.: ${customer.aadhar}`, 15, customerMetaY);
+        customerMetaY += 5; // Move down again
+    }
       const rightColumnX = 135;
       doc.setFontSize(10);
       doc.text(`Invoice No.:`, rightColumnX, customerY + 6);
@@ -843,24 +841,31 @@ class PDFService {
       });
       
       // --- PDF Footer ---
+      
+
       let finalY = 190;
       const rightColX = pageWidth - 15;
       const leftColX = 15;
       doc.setLineWidth(0.2);
-      doc.line(leftColX, finalY, rightColX, finalY);
-      
+     doc.line(leftColX, finalY, rightColX, finalY);
+    
+      // --- Column 1: Bank Details ---
       let leftY = finalY + 5;
       doc.setFontSize(8);
       doc.setFont(undefined, 'bold');
       doc.text('Bank Details :', leftColX + 2, leftY);
       doc.setFont(undefined, 'normal');
       leftY += 5;
+      doc.text(`Beneficiary: ${company.beneficiaryName || ''}`, leftColX + 2, leftY);
+      leftY += 5;
       doc.text(`Bank   : ${company.bankName || 'N/A'}`, leftColX + 2, leftY);
       doc.text(`Branch : ${company.branch || 'N/A'}`, leftColX + 60, leftY);
       leftY += 5;
       doc.text(`A/c No.: ${company.accountNumber || 'N/A'}`, leftColX + 2, leftY);
       doc.text(`IFSC   : ${company.ifscCode || 'N/A'}`, leftColX + 60, leftY);
+      leftY += 2; // Final padding for this column
 
+      // --- Column 2: Totals Section ---
       const formatNumber = (num) => (num || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
       const exactTotal = invoice.subtotal + invoice.tax_amount;
       const roundedTotal = Math.round(exactTotal);
@@ -872,35 +877,42 @@ class PDFService {
       rightY += 5;
       const isInterState = customer.state_code !== company.state_code;
       if (isInterState) {
-          doc.text('+ IGST', rightColX - 45, rightY);
-          doc.text(formatNumber(invoice.tax_amount), rightColX, rightY, { align: 'right' });
-          rightY += 5;
+        doc.text('+ IGST', rightColX - 45, rightY);
+        doc.text(formatNumber(invoice.tax_amount), rightColX, rightY, { align: 'right' });
+        rightY += 5;
       } else {
-          const halfTax = (invoice.tax_amount || 0) / 2;
-          doc.text('+ CGST', rightColX - 45, rightY);
-          doc.text(formatNumber(halfTax), rightColX, rightY, { align: 'right' });
-          rightY += 5;
-          doc.text('+ SGST', rightColX - 45, rightY);
-          doc.text(formatNumber(halfTax), rightColX, rightY, { align: 'right' });
-          rightY += 5;
-      }
+        const totalTax = invoice.tax_amount || 0;
+        const cgst = Math.floor((totalTax / 2) * 100) / 100;
+        const sgst = totalTax - cgst;
+        doc.text('+ CGST', rightColX - 45, rightY);
+        doc.text(formatNumber(cgst), rightColX, rightY, { align: 'right' });
+        rightY += 5;
+        doc.text('+ SGST', rightColX - 45, rightY);
+        doc.text(formatNumber(sgst), rightColX, rightY, { align: 'right' });
+        rightY += 5;
+    }
       doc.text('Round Off', rightColX - 45, rightY);
       doc.text(roundOff.toFixed(2), rightColX, rightY, { align: 'right' });
       doc.line(rightColX - 60, rightY + 2, rightColX, rightY + 2);
       rightY += 7;
       doc.setFont(undefined, 'bold');
       doc.text('Total Rs.', rightColX - 45, rightY);
-      doc.text(formatNumber(roundedTotal), rightColX, rightY, { align: 'right' });
+      doc.text(formatNumber(roundedTotal), rightColX, rightY, { align: 'right' })
       
+      // --- Content Below Columns (Rupees, Terms, etc.) ---
+      // Find the bottom of the taller column to start the next section
+      let bottomY = Math.max(leftY, rightY) + 5;
+
       doc.setFontSize(8);
       doc.setFont(undefined, 'bold');
-      doc.text('Rupees:', leftColX + 2, rightY);
+      doc.text('Rupees:', leftColX + 2, bottomY);
       doc.setFont(undefined, 'normal');
       const amountInWordsStr = Utils.amountInWords(roundedTotal).toUpperCase() + " ONLY";
       const amountInWordsLines = doc.splitTextToSize(amountInWordsStr, 120); 
-      doc.text(amountInWordsLines, leftColX + 15, rightY);
-      const amountInWordsHeight = amountInWordsLines.length * 4;
-      let bottomY = rightY + amountInWordsHeight;
+      doc.text(amountInWordsLines, leftColX + 15, bottomY);
+    
+      // Adjust Y position based on how many lines the text took
+      bottomY += (amountInWordsLines.length * 4) + 2; 
 
       doc.line(leftColX, bottomY, rightColX, bottomY);
       bottomY += 5;
@@ -910,26 +922,17 @@ class PDFService {
       doc.text('E. & O. E.', rightColX, bottomY, {align: 'right'});
       const terms = doc.splitTextToSize(appState.settings.terms_conditions, 180);
       doc.text(terms, leftColX + 2, bottomY + 4);
-      
+    
       const signatureY = pageHeight - 25;
       doc.line(leftColX, signatureY, rightColX, signatureY);
       doc.setFontSize(9);
       doc.text('Received By', leftColX + 2, signatureY + 5);
       doc.text('Checked By', pageWidth / 2, signatureY + 5, {align: 'center'});
       doc.setFont(undefined, 'bold');
-      doc.text(`For ${company?.name || 'STAR FABRICS'}`, rightColX, signatureY - 2, {align: 'right'});
+      doc.text(`For ${company?.name || 'Your Company'}`, rightColX, signatureY - 2, {align: 'right'});
       doc.setFont(undefined, 'normal');
       doc.text('Authorised Signatory', rightColX, signatureY + 10, {align: 'right'});
-
-
       return doc; 
-
-      //doc.save(`invoice-${invoice.invoice_number}.pdf`);
-      //NotificationService.success('PDF downloaded successfully!');
-    //} catch (error) {
-    //  console.error('Failed to generate PDF:', error);
-    //  NotificationService.error('Failed to generate PDF. Please try again.');
-    //}
   }
   static async generateInvoicePDF(invoiceId) {
     try {
@@ -1747,6 +1750,8 @@ class App {
           const action = menuItem.dataset.action;
           if (action === 'add-payment') PaymentController.openPaymentModal(invoiceId);
           if (action === 'download') InvoiceController.downloadInvoice(invoiceId);
+          if (action === 'cancel') InvoiceController.cancelInvoice(invoiceId);
+          if (action === 'delete') InvoiceController.deleteInvoice(invoiceId);
           menuItem.closest('.action-menu-content').classList.remove('show');
         }
       });
@@ -2481,7 +2486,8 @@ class InvoiceController {
       for (const invoice of invoices) {
         const customer = await db.customers.get(invoice.customer_id);
         const finalStatus = invoice.payment_status || 'pending';
-        const statusClass = finalStatus === 'paid' ? 'success' : 'warning';
+        const statusClass = finalStatus === 'paid' ? 'success' : 
+                          finalStatus === 'cancelled' ? 'info' : 'warning';
         const statusText = finalStatus.charAt(0).toUpperCase() + finalStatus.slice(1);
 
         html += `
@@ -2505,8 +2511,10 @@ class InvoiceController {
                   <div class="action-menu-content">
                     ${finalStatus !== 'paid' && finalStatus !== 'cancelled' ? 
                     `<button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="add-payment">Add Payment</button>` : ''}
-                    <button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="print">Print Invoice</button>
                     <button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="download">Download PDF</button>
+                    ${finalStatus !== 'paid' && finalStatus !== 'cancelled' ? 
+                    `<button class="action-menu-item" data-invoice-id="${invoice.id}" data-action="cancel">Cancel Invoice</button>` : ''}
+                    <button class="action-menu-item text-error" data-invoice-id="${invoice.id}" data-action="delete">Delete Invoice</button>
                   </div>
                 </div>
               </div>
@@ -2517,6 +2525,86 @@ class InvoiceController {
       tbody.innerHTML = html || '<tr><td colspan="7" class="text-center">No invoices found</td></tr>';
     } catch (error) {
       console.error('Failed to load invoices:', error);
+    }
+  }
+
+  // Function to cancel an invoice
+  static async cancelInvoice(invoiceId) {
+    if (!confirm('Are you sure you want to cancel this invoice? This will return the items to stock. This action cannot be undone.')) {
+      return;
+    }
+    LoadingService.show('Cancelling invoice...');
+    try {
+      const invoice = await db.invoices.get(invoiceId);
+      if (!invoice) throw new Error('Invoice not found.');
+
+      await db.transaction('rw', db.invoices, db.products, db.inventory_transactions, async () => {
+        // Return items to stock
+        for (const item of invoice.items) {
+          await db.products.where('id').equals(item.product_id).modify(product => {
+            product.stock_quantity += item.quantity;
+          });
+          await db.inventory_transactions.add({
+            product_id: item.product_id,
+            transaction_type: 'cancellation',
+            quantity: item.quantity, // Positive quantity to add back
+            reference_id: invoiceId.toString(),
+            notes: `Return from cancelled invoice ${invoice.invoice_number}`,
+            created_at: new Date()
+          });
+        }
+        // Update the invoice status
+        await db.invoices.update(invoiceId, { payment_status: 'cancelled' });
+      });
+
+      await this.loadInvoices();
+      NotificationService.success('Invoice has been cancelled.');
+    } catch (error) {
+      console.error('Failed to cancel invoice:', error);
+      NotificationService.error('Failed to cancel invoice.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
+
+  // Function to permanently delete an invoice
+  static async deleteInvoice(invoiceId) {
+    if (!confirm('Are you sure you want to PERMANENTLY DELETE this invoice? This action cannot be undone.')) {
+      return;
+    }
+    LoadingService.show('Deleting invoice...');
+    try {
+      const invoice = await db.invoices.get(invoiceId);
+      if (!invoice) throw new Error('Invoice not found.');
+
+      await db.transaction('rw', db.invoices, db.products, db.inventory_transactions, async () => {
+        // Return items to stock only if the invoice wasn't already cancelled
+        if (invoice.payment_status !== 'cancelled') {
+          for (const item of invoice.items) {
+            await db.products.where('id').equals(item.product_id).modify(product => {
+              product.stock_quantity += item.quantity;
+            });
+            await db.inventory_transactions.add({
+              product_id: item.product_id,
+              transaction_type: 'deletion',
+              quantity: item.quantity,
+              reference_id: invoiceId.toString(),
+              notes: `Stock return from deleted invoice ${invoice.invoice_number}`,
+              created_at: new Date()
+            });
+          }
+        }
+        // Delete the invoice itself
+        await db.invoices.delete(invoiceId);
+      });
+      
+      await this.loadInvoices();
+      NotificationService.success('Invoice permanently deleted.');
+    } catch (error) {
+      console.error('Failed to delete invoice:', error);
+      NotificationService.error('Failed to delete invoice.');
+    } finally {
+      LoadingService.hide();
     }
   }
 
@@ -2693,11 +2781,21 @@ class InvoiceController {
           this.calculateTotals();
         }
       }
+      if (e.target.classList.contains('discount-type-select')) {
+        const row = e.target.closest('.item-row');
+        const discountValueInput = row.querySelector('.discount-value-input');
+        if (discountValueInput) {
+          // Reset discount value when type changes
+          discountValueInput.value = '';
+          this.calculateRowAmount(row);
+          this.calculateTotals();
+        }
+      }
     });
 
     // Quantity/Rate input handlers
     newContainer.addEventListener('input', (e) => {
-      if (e.target.classList.contains('quantity-input') || e.target.classList.contains('rate-input')) {
+      if (e.target.classList.contains('quantity-input') || e.target.classList.contains('rate-input') || e.target.classList.contains('discount-value-input')) {
         const row = e.target.closest('.item-row');
         this.calculateRowAmount(row);
         this.calculateTotals();
@@ -2722,40 +2820,90 @@ class InvoiceController {
     }
   }
 
-  static calculateTotals() {
+  // In app.js, replace the entire calculateTotals function in InvoiceController
+
+static calculateTotals() {
     const rows = document.querySelectorAll('.item-row');
-    let subtotal = 0;
+    let grossSubtotal = 0;
+    let totalItemDiscount = 0;
     let totalGST = 0;
 
+    // --- 1. Calculate Item Totals and Discounts ---
     rows.forEach(row => {
-      const quantityInput = row.querySelector('.quantity-input');
-      const rateInput = row.querySelector('.rate-input');
-      const productSelect = row.querySelector('.product-select');
-      
-      if (quantityInput && rateInput && productSelect && quantityInput.value && rateInput.value) {
-        const quantity = parseFloat(quantityInput.value) || 0;
-        const rate = parseFloat(rateInput.value) || 0;
-        const amount = Utils.calculateAmount(quantity, rate);
+        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+        const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
         
-        const option = productSelect.selectedOptions[0];
-        const gstRate = option ? parseFloat(option.dataset.gst) || 0 : 0;
-        const gstAmount = Utils.calculateGST(amount, gstRate);
+        // Safely check for discount inputs, which might be hidden
+        const discountValueInput = row.querySelector('.discount-value-input');
+        const discountValue = discountValueInput ? parseFloat(discountValueInput.value) || 0 : 0;
+        const discountType = row.querySelector('.discount-type-select')?.value || 'percentage';
+
+        const productSelect = row.querySelector('.product-select');
+        const amountDisplay = row.querySelector('.amount-display');
         
-        subtotal += amount;
-        totalGST += gstAmount;
-      }
+        if (quantity > 0 && rate > 0) {
+            const lineTotal = Utils.calculateAmount(quantity, rate);
+            grossSubtotal += lineTotal;
+
+            let itemDiscountAmount = 0;
+            if (discountValue > 0) {
+                itemDiscountAmount = (discountType === 'percentage')
+                    ? (lineTotal * discountValue / 100)
+                    : discountValue;
+            }
+            totalItemDiscount += itemDiscountAmount;
+
+            const netAmount = lineTotal - itemDiscountAmount;
+            if (amountDisplay) amountDisplay.value = Utils.formatCurrency(netAmount);
+            
+            const option = productSelect.selectedOptions[0];
+            const gstRate = option ? parseFloat(option.dataset.gst) || 0 : 0;
+            totalGST += Utils.calculateGST(netAmount, gstRate);
+        } else {
+            if (amountDisplay) amountDisplay.value = Utils.formatCurrency(0);
+        }
     });
 
-    const total = subtotal + totalGST;
+    // --- 2. Calculate Invoice-Level Discount ---
+    // FIXED: Added optional chaining (?.) to prevent the error if the element is not found.
+    const invoiceDiscountValue = parseFloat(document.getElementById('invoice-discount-value')?.value) || 0;
+    const invoiceDiscountType = document.getElementById('invoice-discount-type')?.value || 'percentage';
+    
+    let invoiceDiscountAmount = 0;
+    if (invoiceDiscountValue > 0) {
+        invoiceDiscountAmount = (invoiceDiscountType === 'percentage')
+            ? (grossSubtotal * invoiceDiscountValue / 100)
+            : invoiceDiscountValue;
+    }
+    
+    // Recalculate GST if invoice-level discount is applied
+    if (invoiceDiscountAmount > 0) {
+        const netSubtotalAfterInvoiceDiscount = grossSubtotal - invoiceDiscountAmount;
+        totalGST = 0; // Reset GST
+        rows.forEach(row => {
+            const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+            const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
+            if (quantity > 0 && rate > 0) {
+                 const lineTotal = Utils.calculateAmount(quantity, rate);
+                 const proportionOfTotal = grossSubtotal > 0 ? lineTotal / grossSubtotal : 0;
+                 const discountedLineValue = lineTotal - (invoiceDiscountAmount * proportionOfTotal);
+                 const option = row.querySelector('.product-select').selectedOptions[0];
+                 const gstRate = option ? parseFloat(option.dataset.gst) || 0 : 0;
+                 totalGST += Utils.calculateGST(discountedLineValue, gstRate);
+            }
+        });
+    }
 
-    const subtotalEl = document.getElementById('invoice-subtotal');
-    const gstEl = document.getElementById('invoice-gst');
-    const totalEl = document.getElementById('invoice-total');
+    // --- 3. Update Final Totals ---
+    const totalDiscount = totalItemDiscount + invoiceDiscountAmount;
+    const finalTotal = (grossSubtotal - totalDiscount) + totalGST;
 
-    if (subtotalEl) subtotalEl.textContent = Utils.formatCurrency(subtotal);
-    if (gstEl) gstEl.textContent = Utils.formatCurrency(totalGST);
-    if (totalEl) totalEl.textContent = Utils.formatCurrency(total);
-  }
+    document.getElementById('invoice-subtotal').textContent = Utils.formatCurrency(grossSubtotal);
+    document.getElementById('invoice-discount').textContent = `- ${Utils.formatCurrency(totalDiscount)}`;
+    document.getElementById('invoice-gst').textContent = Utils.formatCurrency(totalGST);
+    document.getElementById('invoice-total').textContent = Utils.formatCurrency(finalTotal);
+}
+
   static addInvoiceItem() {
     const container = document.getElementById('invoice-items-container');
     if (!container) return;
@@ -2772,6 +2920,15 @@ class InvoiceController {
         </div>
         <div class="item-rate">
           <input type="number" class="form-control rate-input" placeholder="Rate" step="0.01" min="0" required>
+        </div>
+        <div class="item-discount">
+            <div class="input-group">
+                <input type="number" class="form-control discount-value-input" placeholder="0" min="0">
+                <select class="form-control discount-type-select" style="max-width: 60px;">
+                    <option value="percentage">%</option>
+                    <option value="fixed">₹</option>
+                </select>
+            </div>
         </div>
         <div class="item-amount">
           <input type="text" class="form-control amount-display" placeholder="Amount" readonly>

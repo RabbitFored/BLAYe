@@ -1145,6 +1145,16 @@
                     <!-- Invoice Items -->
                     <div class="invoice-items-section">
                         <h4>Invoice Items</h4>
+
+<div class="item-headers">
+    <span>Product / Service</span>
+    <span>Qty</span>
+    <span>Rate</span>
+    <span>Discount</span>
+    <span class="text-right">Net Amount</span>
+</div>
+
+
                         <div class="items-container" id="invoice-items-container">
                             <div class="item-row" data-row="0">
                                 <div class="item-grid">
@@ -1159,6 +1169,15 @@
                                     <div class="item-rate">
                                         <input type="number" class="form-control rate-input" placeholder="Rate" step="any" min="0" required>
                                     </div>
+                                    <div class="item-discount">
+        <div class="input-group">
+            <input type="number" class="form-control discount-value-input" placeholder="Discount" min="0" step="any">
+            <select class="form-control discount-type-select" style="width: 60px; padding: 0 4px;">
+                <option value="percentage">%</option>
+                <option value="fixed">₹</option>
+            </select>
+        </div>
+    </div>
                                     <div class="item-amount">
                                         <input type="text" class="form-control amount-display" placeholder="Amount" readonly>
                                     </div>
@@ -1173,19 +1192,32 @@
                     <!-- Invoice Totals -->
                     <div class="invoice-totals-section">
                         <div class="totals-container">
-                            <div class="total-row">
-                                <span>Subtotal:</span>
-                                <span id="invoice-subtotal">₹0.00</span>
-                            </div>
-                            <div class="total-row">
-                                <span>GST:</span>
-                                <span id="invoice-gst">₹0.00</span>
-                            </div>
-                            <div class="total-row total-final">
-                                <strong>Total Amount:</strong>
-                                <strong id="invoice-total">₹0.00</strong>
-                            </div>
-                        </div>
+    <div class="total-row">
+        <span>Subtotal:</span>
+        <span id="invoice-subtotal">₹0.00</span>
+    </div>
+    <div class="total-row">
+        <span>Discount:</span>
+        <span id="invoice-discount" class="text-success"> - ₹0.00</span>
+    </div>
+    <div class="total-row">
+        <span>GST:</span>
+        <span id="invoice-gst">₹0.00</span>
+    </div>
+    <div class="total-row total-final">
+        <strong>Total Amount:</strong>
+        <strong id="invoice-total">₹0.00</strong>
+    </div>
+
+    <div id="invoice-discount-inputs" class="input-group mt-8" style="display: none;">
+        <input type="number" id="invoice-discount-value" class="form-control" placeholder="Discount" min="0">
+        <select id="invoice-discount-type" class="form-control" style="width: 80px;">
+            <option value="percentage">%</option>
+            <option value="fixed">₹</option>
+        </select>
+    </div>
+    <a href="#" id="add-invoice-discount" class="btn--link mt-8" style="text-align: right; display: block;">Add Invoice Discount</a>
+</div>
                     </div>
                 </div>
                 <div class="modal-footer">
