@@ -616,7 +616,10 @@ class InvoiceService {
       let itemsHTML = '';
       for (let i = 0; i < invoice.items.length; i++) {
         const item = invoice.items[i];
-        const itemTotal = item.netAmount ?? Utils.calculateAmount(item.quantity, item.rate);
+
+        // FIXED: Change 'item.netAmount' to 'item.amount'
+        // This now shows the gross total (Qty * Rate)
+        const itemTotal = item.amount ?? Utils.calculateAmount(item.quantity, item.rate);
         
         let discountText = '-';
         if (item.discount && item.discount.value > 0) {
@@ -716,6 +719,12 @@ class InvoiceService {
                     <span>Discount:</span>
                     <span class="text-success">- ${Utils.formatCurrency(invoice.totalDiscount)}</span>
                 </div>` : ''}
+
+                <div class="total-row" style="font-weight: 500; border-top: 1px dashed var(--color-border); padding-top: var(--space-4); margin-top: var(--space-4);">
+                  <span>Taxable Amount:</span>
+                  <span>${Utils.formatCurrency(invoice.netSubtotal || (invoice.subtotal - displayDiscountTotal))}</span>
+                </div>
+
                 ${taxRows}
                 <div class="total-row total-final">
                     <span>Total Amount:</span>
@@ -772,7 +781,7 @@ class PDFService {
       headerY += 5;
       doc.setFontSize(18);
       doc.setFont(undefined, 'bold');
-      doc.text(company?.name.toUpperCase() || 'STAR FABRICS', pageWidth / 2, headerY, { align: 'center' });
+      doc.text(company?.name.toUpperCase() || 'BLAYe', pageWidth / 2, headerY, { align: 'center' });
       
       headerY += lineSpacing + 2;
       doc.setFontSize(9);
@@ -837,7 +846,11 @@ class PDFService {
       const tableStartY = customerMetaY + 10;
       const head = [['#', 'Description', 'HSN', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
       const body = invoice.items.map((item, index) => {
-        const itemTotal = item.netAmount; // Use the saved net amount
+    
+        // FIXED: Change 'item.netAmount' to 'item.amount'
+        // This now shows the gross total (Qty * Rate)
+        const itemTotal = item.amount; // Use the saved net amount
+
         let discountText = '-';
         if (item.discount && item.discount.value > 0) {
             discountText = item.discount.type === 'percentage' ? `${item.discount.value}%` : item.discount.value.toFixed(2);
@@ -853,11 +866,54 @@ class PDFService {
       doc.autoTable({
         head: head, body: body, startY: tableStartY,
         // ... (theme and headStyles) ...
-        styles: { fontSize: 8, cellPadding: 2, /* ... */ },
+        //styles: { fontSize: 8, cellPadding: 2, /* ... */ },
+        // --- AFTER (Monochromatic Header) ---
+        //theme: 'grid', // Use the grid theme
+        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 9 }, // Light gray header, black bold text
+        styles: { fontSize: 9, cellPadding: 2, }, // Light gray grid lines, black text
         columnStyles: {
             // UPDATED: Column indices have shifted
-            4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'center' }, 7: { halign: 'right' }
+            0: { halign: 'center' }, 
+            3: { halign: 'left' }, 
+            4: { halign: 'center' }, 
+            5: { halign: 'center' }, 
+            6: { halign: 'center' }, 
+            7: { halign: 'right' }
+        },
+
+        // --- NEW: Use didParseCell to precisely control HEADER alignment ---
+        didParseCell: function (data) {
+        // Apply styles ONLY to header cells
+        if (data.row.section === 'head') {
+            // Center align the '#' column header
+            if (data.column.index === 0) {
+                data.cell.styles.halign = 'center';
+            }
+            // Center align the 'GST%' column header
+            else if (data.column.index === 6) {
+                 data.cell.styles.halign = 'center';
+            }
+             // Center align the 'Discount' column header
+            else if (data.column.index === 5) {
+                 data.cell.styles.halign = 'center';
+            }
+            else if (data.column.index === 3) {
+                 data.cell.styles.halign = 'left';
+            }
+            else if (data.column.index === 4) {
+                 data.cell.styles.halign = 'center';
+            }
+            else if (data.column.index === 7) {
+                 data.cell.styles.halign = 'right';
+            }
+            // Left align all other headers (Description, HSN, Qty, Rate, Total)
+            else {
+                data.cell.styles.halign = 'left';
+            }
         }
+    }
+      
+
     });
       
       // --- PDF Footer ---
@@ -896,11 +952,18 @@ class PDFService {
       doc.text(formatNumber(invoice.subtotal), rightColX, rightY, { align: 'right' });
       rightY += 5;
 
-      if (invoice.totalDiscount > 0) {
+      if (invoice.totalDiscount && invoice.totalDiscount > 0) {
         doc.text('Discount', rightColX - 45, rightY);
         doc.text(`- ${formatNumber(invoice.totalDiscount)}`, rightColX, rightY, { align: 'right' });
         rightY += 5;
       }
+
+      const taxableAmount = invoice.netSubtotal ?? (invoice.subtotal - (invoice.totalDiscount || 0));
+      doc.setFont(undefined, 'bold'); // Make it slightly distinct
+      doc.text('Taxable Amount', rightColX - 45, rightY);
+      doc.text(formatNumber(taxableAmount), rightColX, rightY, { align: 'right' });
+      doc.setFont(undefined, 'normal'); // Reset font weight
+      rightY += 5;
 
       const isInterState = customer.state_code !== company.state_code;
       if (isInterState) {
@@ -2874,6 +2937,9 @@ static calculateTotals() {
             const lineTotal = Utils.calculateAmount(quantity, rate);
             grossSubtotal += lineTotal;
 
+            // The "Net Amount" column now shows the gross lineTotal (Qty * Rate)
+            if (amountDisplay) amountDisplay.value = Utils.formatCurrency(lineTotal);
+
             let itemDiscountAmount = 0;
             if (discountValue > 0) {
                 itemDiscountAmount = (discountType === 'percentage')
@@ -2882,8 +2948,8 @@ static calculateTotals() {
             }
             totalItemDiscount += itemDiscountAmount;
 
-            const netAmount = lineTotal - itemDiscountAmount;
-            if (amountDisplay) amountDisplay.value = Utils.formatCurrency(netAmount);
+            const netAmount = lineTotal - itemDiscountAmount;// This is the (hidden) taxable value of the item
+            //if (amountDisplay) amountDisplay.value = Utils.formatCurrency(netAmount);
             
             const option = productSelect.selectedOptions[0];
             const gstRate = option ? parseFloat(option.dataset.gst) || 0 : 0;
