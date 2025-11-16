@@ -623,10 +623,14 @@ class InvoiceService {
         
         let discountText = '-';
         if (item.discount && item.discount.value > 0) {
-                discountText = item.discount.type === 'percentage'
-                    ? `${item.discount.value}%`
-                    : Utils.formatCurrency(item.discount.value);
-            }
+                if (item.discount.type === 'percentage') {
+            discountText = `${item.discount.value}%`;
+        } else if (item.discount.type === 'per_unit') {
+            discountText = `${Utils.formatCurrency(item.discount.value)} / ${item.unit || 'Unit'}`; // NEW
+        } else { // 'fixed'
+            discountText = Utils.formatCurrency(item.discount.value);
+        }
+       }
         itemsHTML += `
           <tr>
             <td>${i + 1}</td>
@@ -853,7 +857,13 @@ class PDFService {
 
         let discountText = '-';
         if (item.discount && item.discount.value > 0) {
-            discountText = item.discount.type === 'percentage' ? `${item.discount.value}%` : item.discount.value.toFixed(2);
+            if (item.discount.type === 'percentage') {
+            discountText = `${item.discount.value}%`;
+        } else if (item.discount.type === 'per_unit') {
+            discountText = `${item.discount.value.toFixed(2)}/U`; // NEW (short for unit)
+        } else { // 'fixed'
+            discountText = item.discount.value.toFixed(2);
+        }
         }
         return [
             index + 1, item.name, item.hsn_code || 'N/A',
@@ -863,8 +873,13 @@ class PDFService {
         ];
     });
 
+      // Define the height needed for your footer elements
+      // const footerHeight = 65; // Adjust this based on your footer content (bank, terms, signature)
+  
       doc.autoTable({
-        head: head, body: body, startY: tableStartY,
+        head: head, 
+        body: body, 
+        startY: tableStartY,
         // ... (theme and headStyles) ...
         //styles: { fontSize: 8, cellPadding: 2, /* ... */ },
         // --- AFTER (Monochromatic Header) ---
@@ -910,8 +925,10 @@ class PDFService {
             else {
                 data.cell.styles.halign = 'left';
             }
-        }
-    }
+        }}
+       // margin: { bottom: footerHeight }
+
+    
       
 
     });
@@ -919,11 +936,22 @@ class PDFService {
       // --- PDF Footer ---
       
 
+      const totalPages = doc.internal.getNumberOfPages();
+      doc.setPage(totalPages);
+
       let finalY = 190;
+      //let finalY = (doc.autoTable.previous ? doc.autoTable.previous.finalY + 10: tableStartY);
+
+      //if (pageHeight - finalY < footerHeight) {
+      //  doc.addPage();
+      //  finalY = 15; // Reset Y position to the top of the new page
+    //}// else {
+     //   finalY += 10; // Add some padding after the table
+    //}
       const rightColX = pageWidth - 15;
       const leftColX = 15;
       doc.setLineWidth(0.2);
-     doc.line(leftColX, finalY, rightColX, finalY);
+      doc.line(leftColX, finalY, rightColX, finalY);
     
       // --- Column 1: Bank Details ---
       let leftY = finalY + 5;
@@ -2942,9 +2970,13 @@ static calculateTotals() {
 
             let itemDiscountAmount = 0;
             if (discountValue > 0) {
-                itemDiscountAmount = (discountType === 'percentage')
-                    ? (lineTotal * discountValue / 100)
-                    : discountValue;
+                if (discountType === 'percentage') {
+            itemDiscountAmount = (lineTotal * discountValue / 100);
+        } else if (discountType === 'per_unit') {
+            itemDiscountAmount = (discountValue * quantity); // NEW CALCULATION
+        } else { // 'fixed'
+            itemDiscountAmount = discountValue;
+        }
             }
             totalItemDiscount += itemDiscountAmount;
 
@@ -3022,6 +3054,7 @@ static calculateTotals() {
                 <select class="form-control discount-type-select" style="max-width: 60px;">
                     <option value="percentage">%</option>
                     <option value="fixed">₹</option>
+                    <option value="per_unit">₹/Unit</option>
                 </select>
             </div>
         </div>
@@ -3093,9 +3126,13 @@ static calculateTotals() {
 
         let itemDiscountAmount = 0;
         if (discountValue > 0) {
-                itemDiscountAmount = (discountType === 'percentage')
-                    ? (lineTotal * discountValue / 100)
-                    : discountValue;
+                if (discountType === 'percentage') {
+            itemDiscountAmount = (lineTotal * discountValue / 100);
+        } else if (discountType === 'per_unit') {
+            itemDiscountAmount = (discountValue * quantity); // NEW CALCULATION
+        } else { // 'fixed'
+            itemDiscountAmount = discountValue;
+        }
             }
         totalItemDiscount += itemDiscountAmount;
 
