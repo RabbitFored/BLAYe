@@ -8,9 +8,18 @@ module.exports = {
   rebuildConfig: {},
   makers: [
     {
-      name: '@electron-forge/maker-squirrel',
-      config: {},
-    },
+        "name": "@electron-forge/maker-squirrel",
+        "config": {
+          "name": "BLAYe",
+          "setupExe": "BLAYe-Setup-${version}.exe",
+         // "setupMsi": "BLAYe-Setup-${version}.msi"
+        },
+        "platforms": ["win32"]
+      },
+      {
+        "name": "@electron-forge/maker-zip",
+        "platforms": ["linux"]
+      }
    // {
    //   name: '@electron-forge/maker-wix', // NEW: This makes the .msi
    //   config: {
@@ -21,8 +30,8 @@ module.exports = {
    //   }
    // },
     //{
-   //   name: '@electron-forge/maker-zip',
-    //  platforms: ['darwin'],
+    // name: '@electron-forge/maker-zip',
+    // platforms: ['darwin'],
    // },
     //{
      // name: '@electron-forge/maker-deb',
