@@ -9,16 +9,26 @@ module.exports = {
   makers: [
     {
         "name": "@electron-forge/maker-squirrel",
-        "config": {
+       "config": {
           "name": "BLAYe",
           "setupExe": "BLAYe-Setup-${version}.exe",
-         // "setupMsi": "BLAYe-Setup-${version}.msi"
-        },
+          "setupMsi": "BLAYe-Setup-${version}.msi"
+       },
         "platforms": ["win32"]
       },
       {
+    "name": "@electron-forge/maker-wix",
+    "config": {
+      "name": "BLAYe Professional Billing",
+      "manufacturer": "THEOSTRICH",
+      "ui": { "chooseDirectory": true }
+    },
+    "platforms": ["win32"]
+  },
+
+      {
         "name": "@electron-forge/maker-zip",
-        "platforms": ["linux"]
+        "platforms": ["darwin", "linux", "win32"]
       }
    // {
    //   name: '@electron-forge/maker-wix', // NEW: This makes the .msi

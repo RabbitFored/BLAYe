@@ -1,0 +1,42 @@
+name: Build & Release BLAYe
+
+# Trigger the build only when you push a tag starting with 'v' (e.g., v1.0.0)
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest # This is the magic. It runs on a real Windows Server.
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # This runs the build command. Since we are on Windows, 
+      # we don't technically need the flag, but it's good practice.
+      - name: Build & Make
+        run: npm run make -- --platform=win32
+
+      # This grabs the files generated in the 'out' folder and attaches them to the release
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            out/make/squirrel.windows/x64/*.exe
+            out/make/squirrel.windows/x64/*.msi
+            out/make/zip/win32/x64/*.zip
