@@ -12,6 +12,8 @@ build/
 *.min.js
 *.min.css
 
+!libs/*.min.js
+
 # Environment files
 .env
 .env.local
