@@ -4044,15 +4044,87 @@ class SettingsController {
     });
   }
   static setupEventListeners() {
+    // Prevent duplicate listeners if this is called multiple times
     if (this.hasResetListener) return;
 
+    // --- 1. Existing Factory Reset Listener (Ctrl+Shift+Delete) ---
     document.addEventListener('keydown', (e) => {
       if (appState.currentPage === 'settings' && e.ctrlKey && e.shiftKey && e.key === 'Delete') {
         e.preventDefault();
         this.showResetConfirmation();
       }
     });
+
+    // --- 2. NEW: Manual "Check for Updates" Button Listener ---
+    const checkUpdateBtn = document.getElementById('check-update-btn');
+    if (checkUpdateBtn) {
+      checkUpdateBtn.addEventListener('click', () => {
+        // Update UI immediately
+        this.setUpdateStatus('checking', 'Checking...');
+
+        // Call the Electron API bridge
+        if (window.electronAPI) {
+          window.electronAPI.checkForUpdates();
+        } else {
+          console.error('Electron API not available');
+          this.setUpdateStatus('error', 'Update API not available');
+        }
+      });
+    }
+
+    // --- 3. NEW: Listen for Status Updates from Backend ---
+    if (window.electronAPI) {
+      window.electronAPI.onUpdateStatus((status) => {
+        this.setUpdateStatus(status.state, status.message);
+      });
+    }
+
+    // Mark listeners as attached
     this.hasResetListener = true;
+  }
+  // --- NEW Helper Method for Update Status UI ---
+  static setUpdateStatus(state, message) {
+    const statusText = document.getElementById('update-status-text');
+    const btn = document.getElementById('check-update-btn');
+
+    if (!statusText || !btn) return;
+
+    // Update the status message
+    statusText.textContent = message;
+    statusText.className = 'text-secondary'; // Reset base class
+
+    // Handle specific states
+    switch (state) {
+      case 'checking':
+      case 'available':
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        statusText.classList.add('text-info');
+        break;
+      
+      case 'downloaded':
+        btn.disabled = false;
+        btn.textContent = 'Restart to Update';
+        statusText.classList.add('text-success');
+        // Change button action to restart (optional, or let user restart manually)
+        btn.onclick = () => {
+           if(window.electronAPI) window.electronAPI.quitAndInstall(); 
+        };
+        break;
+        
+      case 'error':
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        statusText.classList.add('text-error');
+        break;
+        
+      case 'not-available': // Means "Up to date"
+      default:
+        btn.disabled = false;
+        btn.textContent = 'Check for Updates';
+        if (state === 'not-available') statusText.classList.add('text-success');
+        break;
+    }
   }
   static showResetConfirmation() {
     const modal = document.getElementById('factory-reset-modal');

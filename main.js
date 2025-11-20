@@ -1,9 +1,22 @@
 // main.js - The entry point for your Electron app
-
+console.log('✅✅✅ main SCRIPT IS RUNNING! ✅✅✅');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
+
+
+const preloadPath = path.join(__dirname, 'preload.js');
+
+
+const targetPreloadPath = path.join(__dirname, 'preload.js');
+
+console.log('---------------- DEBUG PATHS ----------------');
+console.log('1. Main.js is located at:   ', __dirname);
+console.log('2. Trying to load preload at:', targetPreloadPath);
+console.log('3. Does file exist there?   ', fs.existsSync(targetPreloadPath) ? 'YES ✅' : 'NO ❌');
+console.log('---------------------------------------------');
+
 
 const createWindow = () => {
   // Create the browser window.
@@ -11,7 +24,7 @@ const createWindow = () => {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'electron/preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
     }
@@ -57,7 +70,47 @@ ipcMain.on('print-pdf', (event, pdfBuffer) => {
   });
 });
 // --- End Upda
+// 1. Add IPC Listener for manual check
+ipcMain.on('check-for-updates', () => {
+  if (!app.isPackaged) {
+    // updates don't work in dev mode
+    const win = BrowserWindow.getAllWindows()[0];
+    win.webContents.send('update-status', { state: 'error', message: 'Cannot check for updates in dev mode' });
+    return;
+  }
+  autoUpdater.checkForUpdates();
+});
 
+// 2. Configure AutoUpdater Events to send status back to UI
+// Only run this logic if app is packaged
+if (app.isPackaged) {
+  const server = 'https://update.electronjs.org';
+  const feed = `${server}/RabbitFored/BLAYe/${process.platform}/${app.getVersion()}`;
+  autoUpdater.setFeedURL({ url: feed });
+
+  autoUpdater.on('checking-for-update', () => {
+    sendStatusToWindow({ state: 'checking', message: 'Checking for updates...' });
+  });
+
+  autoUpdater.on('update-available', () => {
+    sendStatusToWindow({ state: 'available', message: 'Update available. Downloading...' });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    sendStatusToWindow({ state: 'not-available', message: 'You are on the latest version.' });
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendStatusToWindow({ state: 'error', message: 'Error checking for updates.' });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    sendStatusToWindow({ state: 'downloaded', message: 'Update downloaded. Restarting...' });
+    // Optional: Auto restart after a few seconds or prompt via dialog
+    setTimeout(() => autoUpdater.quitAndInstall(), 3000);
+
+});
+}
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   createWindow();
@@ -77,3 +130,11 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+// Helper function
+function sendStatusToWindow(statusObj) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    win.webContents.send('update-status', statusObj);
+  }
+}
