@@ -25,6 +25,7 @@ const createWindow = () => {
     height: 800,
     webPreferences: {
       preload: preloadPath,
+      //sandbox: false,
       nodeIntegration: false,
       contextIsolation: true,
     }
