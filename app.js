@@ -3043,18 +3043,18 @@ static calculateTotals() {
           <select class="form-control product-select" required></select>
         </div>
         <div class="item-quantity">
-          <input type="number" class="form-control quantity-input" placeholder="Qty" step="0.001" min="0" required>
+          <input type="number" class="form-control quantity-input" placeholder="Qty" step="any" min="0" required>
         </div>
         <div class="item-rate">
-          <input type="number" class="form-control rate-input" placeholder="Rate" step="0.01" min="0" required>
+          <input type="number" class="form-control rate-input" placeholder="Rate" step="any" min="0" required>
         </div>
         <div class="item-discount">
             <div class="input-group">
                 <input type="number" class="form-control discount-value-input" placeholder="0" min="0">
                 <select class="form-control discount-type-select" style="max-width: 60px;">
+                    <option value="per_unit">₹/Unit</option>
                     <option value="percentage">%</option>
                     <option value="fixed">₹</option>
-                    <option value="per_unit">₹/Unit</option>
                 </select>
             </div>
         </div>
