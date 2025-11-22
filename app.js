@@ -3050,7 +3050,7 @@ static calculateTotals() {
         </div>
         <div class="item-discount">
             <div class="input-group">
-                <input type="number" class="form-control discount-value-input" placeholder="0" min="0">
+                <input type="number" class="form-control discount-value-input" placeholder="0" min="0" step="any">
                 <select class="form-control discount-type-select" style="max-width: 60px;">
                     <option value="per_unit">₹/Unit</option>
                     <option value="percentage">%</option>
