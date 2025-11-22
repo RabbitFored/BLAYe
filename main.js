@@ -1,6 +1,6 @@
 // main.js - The entry point for your Electron app
 console.log('✅✅✅ main SCRIPT IS RUNNING! ✅✅✅');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, autoUpdater} = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
@@ -25,12 +25,16 @@ const createWindow = () => {
     height: 800,
     webPreferences: {
       preload: preloadPath,
-      //sandbox: false,
+      // sandbox: false,
       nodeIntegration: false,
       contextIsolation: true,
     }
   });
 
+  // --- ADD THIS LINE ---
+  //mainWindow.webContents.openDevTools(); 
+  // ---------------------
+  
   // Remove the default menu bar
   win.setMenu(null);
 
