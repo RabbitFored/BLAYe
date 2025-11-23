@@ -39,4 +39,5 @@ jobs:
           files: |
             out/make/squirrel.windows/x64/*.exe
             out/make/squirrel.windows/x64/*.msi
+            
             out/make/zip/win32/x64/*.zip
