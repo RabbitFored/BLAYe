@@ -105,8 +105,10 @@ if (app.isPackaged) {
     sendStatusToWindow({ state: 'not-available', message: 'You are on the latest version.' });
   });
 
+
+  // printed error, carefull !!!
   autoUpdater.on('error', (err) => {
-    sendStatusToWindow({ state: 'error', message: 'Error checking for updates.' });
+    sendStatusToWindow({ state: 'error', message: `Error: ${err.message || err.toString()}` });
   });
 
   autoUpdater.on('update-downloaded', () => {
