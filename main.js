@@ -86,6 +86,10 @@ ipcMain.on('check-for-updates', () => {
   autoUpdater.checkForUpdates();
 });
 
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
 // 2. Configure AutoUpdater Events to send status back to UI
 // Only run this logic if app is packaged
 if (app.isPackaged) {

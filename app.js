@@ -1577,6 +1577,8 @@ class App {
       this.setupEventListeners();
       this.setupNetworkDetection();
 
+      this.displayAppVersion();
+
       await OnboardingController.init();
       await this.showPage('dashboard');
 
@@ -1922,6 +1924,25 @@ class App {
 
     appState.updateSyncStatus();
   }
+
+  static async displayAppVersion() {
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+        try {
+            const version = await window.electronAPI.getAppVersion();
+            
+            // Update Sidebar
+            const sidebarEl = document.getElementById('app-version-sidebar');
+            if (sidebarEl) sidebarEl.textContent = v${version};
+
+            // Update Settings Page
+            const settingsEl = document.getElementById('app-version-settings');
+            if (settingsEl) settingsEl.textContent = v${version};
+            
+        } catch (error) {
+            console.error('Failed to get app version:', error);
+        }
+    }
+}
 
 
   // FIXED: Page navigation with proper error handling

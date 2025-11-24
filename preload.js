@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('update-status');
     ipcRenderer.on('update-status', (event, status) => callback(status));
   },
+
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
   // Existing feature: Print PDF (if you have this logic)
   printComponentPDF: (data) => ipcRenderer.send('print-component-pdf', data)
