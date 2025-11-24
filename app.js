@@ -1577,8 +1577,6 @@ class App {
       this.setupEventListeners();
       this.setupNetworkDetection();
 
-      this.displayAppVersion();
-
       await OnboardingController.init();
       await this.showPage('dashboard');
 
@@ -1588,6 +1586,7 @@ class App {
 
       // Load initial page
       await this.showPage('dashboard');
+      this.displayAppVersion();
 
       // Mark as initialized
       appState.isInitialized = true;
@@ -1932,16 +1931,18 @@ class App {
             
             // Update Sidebar
             const sidebarEl = document.getElementById('app-version-sidebar');
-            if (sidebarEl) sidebarEl.textContent = v${version};
+            if (sidebarEl) sidebarEl.textContent = `v${version}`;
 
             // Update Settings Page
             const settingsEl = document.getElementById('app-version-settings');
-            if (settingsEl) settingsEl.textContent = v${version};
+            if (settingsEl) settingsEl.textContent = `v${version}`;
             
         } catch (error) {
             console.error('Failed to get app version:', error);
-        }
-    }
+        } 
+    } else {
+      console.error('Electron API missing or getAppVersion not defined');
+  }
 }
 
 
