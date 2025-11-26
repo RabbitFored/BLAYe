@@ -1,6 +1,6 @@
 // main.js - The entry point for your Electron app
 console.log('✅✅✅ main SCRIPT IS RUNNING! ✅✅✅');
-const { app, BrowserWindow, ipcMain, autoUpdater} = require('electron');
+const { app, BrowserWindow, ipcMain, autoUpdater, dialog, globalShortcut} = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
@@ -90,6 +90,9 @@ ipcMain.on('check-for-updates', () => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
 })
+
+
+
 // 2. Configure AutoUpdater Events to send status back to UI
 // Only run this logic if app is packaged
 if (app.isPackaged) {
@@ -122,6 +125,43 @@ if (app.isPackaged) {
 
 });
 }
+
+// Handle Printing
+ipcMain.on('print-component-pdf', (event, pdfData) => {
+  // 1. Create a temporary path for the PDF
+  const pdfPath = path.join(os.tmpdir(), 'print.pdf');
+
+  // 2. Write the PDF data to that file
+  // pdfData comes as an ArrayBuffer from the frontend, so we convert it to a Buffer
+  fs.writeFileSync(pdfPath, Buffer.from(pdfData));
+
+  // 3. Create a hidden window to render the PDF
+  const printWindow = new BrowserWindow({ 
+    show: false,
+    webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+    } 
+  });
+
+  // 4. Load the PDF file
+  printWindow.loadURL(`file://${pdfPath}`);
+
+  // 5. Wait for it to load, then print
+  printWindow.webContents.on('did-finish-load', () => {
+    printWindow.webContents.print({
+        silent: false, // Show the printer selection dialog
+        printBackground: true
+    }, (success, errorType) => {
+        if (!success) console.log("Print failed:", errorType);
+        
+        // Clean up: Close window and attempt to delete file
+        printWindow.close();
+        try { fs.unlinkSync(pdfPath); } catch (e) {}
+    });
+  });
+});
+
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   createWindow();
