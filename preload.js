@@ -6,9 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Listen for status messages from the main process
   onUpdateStatus: (callback) => {
-    // Remove old listeners to prevent duplicates
     ipcRenderer.removeAllListeners('update-status');
-    ipcRenderer.on('update-status', (event, status) => callback(status));
+    // Pass the entire status object (which now contains 'percent')
+    ipcRenderer.on('update-status', (event, statusObj) => callback(statusObj));
   },
 
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

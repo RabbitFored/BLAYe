@@ -4,6 +4,12 @@ const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
 
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
+
+const log = require('electron-log'); // You might need: npm install electron-log
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
 // 1. HANDLE SQUIRREL STARTUP (CRITICAL FOR WINDOWS SHORTCUTS)
 // If this is missing, the installer won't create Desktop icons.
 if (require('electron-squirrel-startup')) {
@@ -136,28 +142,36 @@ ipcMain.on('check-for-updates', () => {
 // 3.2. Configure AutoUpdater Events to send status back to UI
 // Only run this logic if app is packaged
 if (app.isPackaged) {
-  const server = 'https://update.electronjs.org';
-  const feed = `${server}/RabbitFored/BLAYe/${process.platform}/${app.getVersion()}`;
-  autoUpdater.setFeedURL({ url: feed });
+  // 1. Remove the old setFeedURL (electron-updater handles this automatically via package.json)
+  // autoUpdater.setFeedURL({ url: feed }); <-- DELETE THIS LINE
 
-  // Update Events
-  // Update Events
+  // 2. Configure Basic Events
   autoUpdater.on('checking-for-update', () => sendStatusToWindow({ state: 'checking', message: 'Checking for updates...' }));
   autoUpdater.on('update-available', () => sendStatusToWindow({ state: 'available', message: 'Update available. Downloading...' }));
   autoUpdater.on('update-not-available', () => sendStatusToWindow({ state: 'not-available', message: 'You are on the latest version.' }));
 
-
-  // printed error, carefull !!!
   autoUpdater.on('error', (err) => {
     sendStatusToWindow({ state: 'error', message: `Error: ${err.message || err.toString()}` });
   });
 
+  // 3. NEW: Handle Download Progress
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    const speed = (progressObj.bytesPerSecond / 1024).toFixed(0); // KB/s
+
+    sendStatusToWindow({ 
+        state: 'progress', 
+        message: `Downloading: ${percent}% (${speed} KB/s)`,
+        percent: percent // Send the raw number for a progress bar
+    });
+  });
+
+  // 4. Handle Completion
   autoUpdater.on('update-downloaded', () => {
     sendStatusToWindow({ state: 'downloaded', message: 'Update downloaded. Restarting...' });
-    // Optional: Auto restart after a few seconds or prompt via dialog
-    setTimeout(() => autoUpdater.quitAndInstall(), 3000);
-
-});
+    // Optional: Wait for user confirmation or restart immediately
+    // autoUpdater.quitAndInstall(); 
+  });
 }
 
 // Helper function

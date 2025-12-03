@@ -3984,6 +3984,15 @@ class SettingsController {
       NotificationService.error('Failed to load settings');
     }
   }
+  static initUpdateSystem() {
+    // ...
+    if (window.electronAPI && window.electronAPI.onUpdateStatus) {
+        window.electronAPI.onUpdateStatus((statusObj) => {
+            // Unpack the object properties
+            this.setUpdateStatus(statusObj.state, statusObj.message, statusObj.percent);
+        });
+    }
+}
 
   // FIXED: Save settings with immediate header update
   static async saveSettings() {
@@ -4109,49 +4118,59 @@ class SettingsController {
     this.hasResetListener = true;
   }
   // --- NEW Helper Method for Update Status UI ---
-  static setUpdateStatus(state, message) {
+  static setUpdateStatus(state, message, percent = 0) {
     const statusText = document.getElementById('update-status-text');
     const btn = document.getElementById('check-update-btn');
-
     if (!statusText || !btn) return;
 
-    // Update the status message
     statusText.textContent = message;
-    statusText.className = 'text-secondary'; // Reset base class
+    statusText.className = 'text-secondary'; 
 
-    // Handle specific states
     switch (state) {
-      case 'checking':
-      case 'available':
-        btn.disabled = true;
-        btn.textContent = 'Processing...';
-        statusText.classList.add('text-info');
-        break;
-      
-      case 'downloaded':
-        btn.disabled = false;
-        btn.textContent = 'Restart to Update';
-        statusText.classList.add('text-success');
-        // Change button action to restart (optional, or let user restart manually)
-        btn.onclick = () => {
-           if(window.electronAPI) window.electronAPI.quitAndInstall(); 
-        };
-        break;
-        
-      case 'error':
-        btn.disabled = false;
-        btn.textContent = 'Retry';
-        statusText.classList.add('text-error');
-        break;
-        
-      case 'not-available': // Means "Up to date"
-      default:
-        btn.disabled = false;
-        btn.textContent = 'Check for Updates';
-        if (state === 'not-available') statusText.classList.add('text-success');
-        break;
+        case 'checking':
+            btn.disabled = true;
+            statusText.classList.add('text-info');
+            break;
+            
+        case 'available':
+            btn.disabled = true;
+            btn.textContent = 'Downloading...';
+            statusText.classList.add('text-info');
+            break;
+
+        // --- NEW CASE: PROGRESS ---
+        case 'progress':
+            btn.disabled = true;
+            // Update the button to look like a progress indicator
+            btn.textContent = `Downloading ${message.split(':')[1]}`; // e.g., "Downloading 45%"
+            // Optional: You could update a visual progress bar here if you added one to HTML
+            statusText.classList.add('text-info');
+            break;
+        // --------------------------
+
+        case 'downloaded':
+            btn.disabled = false;
+            btn.textContent = 'Restart Now';
+            btn.classList.add('btn--primary');
+            statusText.classList.add('text-success');
+            btn.onclick = () => window.electronAPI.checkForUpdates(); // Still works with electron-updater
+            break;
+            
+        case 'not-available':
+            btn.disabled = false;
+            btn.textContent = 'Check for Updates';
+            statusText.classList.add('text-success');
+            setTimeout(() => { statusText.textContent = ''; }, 3000);
+            break;
+            
+        case 'error':
+            btn.disabled = false;
+            btn.textContent = 'Retry';
+            statusText.classList.add('text-error');
+            break;
     }
-  }
+}
+
   static showResetConfirmation() {
     const modal = document.getElementById('factory-reset-modal');
     const confirmInput = document.getElementById('reset-confirm-text');
