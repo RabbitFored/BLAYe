@@ -15,7 +15,6 @@ module.exports = {
           "authors": "TheOstrich",
           "exe": "BLAYe.exe",
           "setupExe": "BLAYe-Setup.exe",
-          
           //"setupIcon": "./assets/icon.ico",
           //"iconUrl": "https://raw.githubusercontent.com/RabbitFored/BLAYe/main/assets/icon.ico",
           //"loadingGif": "./assets/installing.gif",
