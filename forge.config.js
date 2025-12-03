@@ -10,9 +10,15 @@ module.exports = {
     {
         "name": "@electron-forge/maker-squirrel",
        "config": {
-          "name": "BLAYe",
-          "setupExe": "BLAYe-Setup-${version}.exe",
-          "setupMsi": "BLAYe-Setup-${version}.msi"
+    "name": "BLAYe",
+    "authors": "TheOstrich",
+    "exe": "BLAYe.exe",
+    "setupExe": "BLAYe-Setup.exe",
+    //"setupIcon": "./assets/icon.ico", 
+    //"iconUrl": "https://raw.githubusercontent.com/RabbitFored/BLAYe/main/assets/icon.ico", 
+   // "loadingGif": "./assets/installing.gif",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
        },
         "platforms": ["win32"]
       },
