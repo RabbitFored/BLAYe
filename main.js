@@ -1,5 +1,4 @@
 // main.js - The entry point for your Electron app
-console.log('✅✅✅ main SCRIPT IS RUNNING! ✅✅✅');
 const { app, BrowserWindow, ipcMain, autoUpdater, dialog, globalShortcut} = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
@@ -10,12 +9,6 @@ const preloadPath = path.join(__dirname, 'preload.js');
 
 
 const targetPreloadPath = path.join(__dirname, 'preload.js');
-
-console.log('---------------- DEBUG PATHS ----------------');
-console.log('1. Main.js is located at:   ', __dirname);
-console.log('2. Trying to load preload at:', targetPreloadPath);
-console.log('3. Does file exist there?   ', fs.existsSync(targetPreloadPath) ? 'YES ✅' : 'NO ❌');
-console.log('---------------------------------------------');
 
 
 const createWindow = () => {

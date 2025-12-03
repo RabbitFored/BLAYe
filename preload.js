@@ -1,5 +1,3 @@
-console.log('✅✅✅ PRELOAD SCRIPT IS RUNNING! ✅✅✅');
-
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
