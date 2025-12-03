@@ -6,9 +6,9 @@ const os = require('os'); // NEW: Import Node.js Operating System module
 
 const { autoUpdater } = require('electron-updater');
 
-const log = require('electron-log'); // You might need: npm install electron-log
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+//const log = require('electron-log'); // You might need: npm install electron-log
+//autoUpdater.logger = log;
+//autoUpdater.logger.transports.file.level = 'info';
 // 1. HANDLE SQUIRREL STARTUP (CRITICAL FOR WINDOWS SHORTCUTS)
 // If this is missing, the installer won't create Desktop icons.
 if (require('electron-squirrel-startup')) {
