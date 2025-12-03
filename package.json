@@ -1,19 +1,24 @@
 {
   "name": "BLAYe",
-  "version": "0.0.31",
+  "productName": "BLAYe Professional Billing",
+  "version": "0.0.32",
   "description": "A Node.js billing application",
   "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RabbitFored/BLAYe.git"
+  },
   "scripts": {
     "start": "electron-forge start",
-    "dev": "nodemon main.js",
-    "test": "jest",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "test": "jest"
   },
   "keywords": [
     "billing",
     "invoice",
-    "nodejs"
+    "gst"
   ],
   "author": "RabbitFoRed",
   "license": "ISC",
