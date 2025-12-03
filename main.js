@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 const log = require('electron-log'); // You might need: npm install electron-log
