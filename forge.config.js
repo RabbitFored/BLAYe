@@ -4,16 +4,18 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    executableName: "BLAYe"
   },
   rebuildConfig: {},
   makers: [
     {
         "name": "@electron-forge/maker-squirrel",
-       "config": {
+        "config": {
           "name": "BLAYe",
           "authors": "TheOstrich",
           "exe": "BLAYe.exe",
           "setupExe": "BLAYe-Setup.exe",
+          
           //"setupIcon": "./assets/icon.ico",
           //"iconUrl": "https://raw.githubusercontent.com/RabbitFored/BLAYe/main/assets/icon.ico",
           //"loadingGif": "./assets/installing.gif",

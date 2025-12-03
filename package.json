@@ -1,7 +1,7 @@
 {
   "name": "BLAYe",
   "productName": "BLAYe Professional Billing",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "A Node.js billing application",
   "main": "main.js",
   "repository": {
