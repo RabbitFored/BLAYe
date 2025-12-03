@@ -1,5 +1,5 @@
 // main.js - The entry point for your Electron app
-const { app, BrowserWindow, ipcMain, autoUpdater, dialog} = require('electron');
+const { app, BrowserWindow, ipcMain, dialog} = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
