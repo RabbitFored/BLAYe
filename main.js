@@ -144,7 +144,26 @@ ipcMain.on('print-component-pdf', (event, pdfData) => {
   printWindow.webContents.on('did-finish-load', () => {
     printWindow.webContents.print({
         silent: false, // Show the printer selection dialog
-        printBackground: true
+        printBackground: true,
+        deviceName: '', // Let user choose
+
+        // --- CRITICAL FIXES FOR SCALING ---
+        // 1. Force margins to 0 (The PDF has its own margins)
+        margins: {
+        marginType: 'custom', // Use 'custom' instead of 'none' for better driver support
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+    },
+        
+        // 2. Force A4 size
+        pageSize: 'A4',
+        
+        // 3. Prevent "Fit to Page" shrinking
+        scaleFactor: 100
+
+
     }, (success, errorType) => {
         if (!success) console.log("Print failed:", errorType);
         
