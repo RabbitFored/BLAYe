@@ -3936,6 +3936,7 @@ class SettingsController {
 
   static async loadPage() {
     this.setupEventListeners();
+    this.initUpdateSystem();
     try {
       this.populateStates('company-state');
       const company = appState.company || await db.companies.orderBy('id').first();
@@ -3985,14 +3986,26 @@ class SettingsController {
     }
   }
   static initUpdateSystem() {
-    // ...
-    if (window.electronAPI && window.electronAPI.onUpdateStatus) {
-        window.electronAPI.onUpdateStatus((statusObj) => {
-            // Unpack the object properties
-            this.setUpdateStatus(statusObj.state, statusObj.message, statusObj.percent);
+    // 1. Display Current Version
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+        window.electronAPI.getAppVersion().then(ver => {
+            const el = document.getElementById('app-version-settings');
+            if(el) el.textContent = `v${ver}`;
         });
     }
-}
+
+    // 2. Setup Listener for Status Updates from Backend
+    if (window.electronAPI && window.electronAPI.onUpdateStatus) {
+        window.electronAPI.onUpdateStatus((statusObj) => {
+            // Check if statusObj is an object (new way) or string (old way backup)
+            if (typeof statusObj === 'object') {
+                this.setUpdateStatus(statusObj.state, statusObj.message, statusObj.percent);
+            } else {
+                this.setUpdateStatus(statusObj, statusObj); // Fallback
+            }
+        });
+    }
+  }
 
   // FIXED: Save settings with immediate header update
   static async saveSettings() {
