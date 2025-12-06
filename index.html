@@ -653,45 +653,71 @@
                 <div class="settings-container">
                     <div class="settings-section">
                         <h3>Company Information</h3>
-    <div class="form-grid">
-        <div class="form-group">
-            <label class="form-label">Company Name *</label>
-            <input type="text" id="company-name" class="form-control" required autocomplete="off">
+
+<div style="display: flex; gap: 24px; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap;">
+    
+    <div class="form-group" style="flex: 1; min-width: 250px;">
+        <label class="form-label">Company Name *</label>
+        <input type="text" id="company-name" class="form-control" required autocomplete="off">
+    </div>
+
+    <div class="form-group" style="flex-shrink: 0;">
+        <label class="form-label">Company Logo</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="file" id="company-logo-input" accept="image/png, image/jpeg" class="hidden">
+            
+            <button class="btn btn--outline btn--sm" onclick="document.getElementById('company-logo-input').click()">
+                Upload Logo
+            </button>
+            
+            <div id="logo-preview-container" style="width: 80px; height: 80px; border: 1px dashed var(--color-border); display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 4px;">
+                <img id="logo-preview" src="" alt="Logo" style="max-width: 100%; max-height: 100%; display: none;">
+                <span id="no-logo-text" class="text-secondary" style="font-size: 10px;">No Logo</span>
+            </div>
+
+            <button id="remove-logo-btn" class="btn btn--outline btn--sm btn-icon text-error" style="display: none;" title="Remove Logo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
         </div>
-        <div class="form-group">
-            <label class="form-label">GSTIN *</label>
-            <input type="text" id="company-gstin" class="form-control" required autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Phone</label>
-            <input type="tel" id="company-phone" class="form-control" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="company-email" class="form-control" autocomplete="off">
-        </div>
-    </div>      
+    </div>
+</div>
+
+<div class="form-grid">
     <div class="form-group">
-        <label class="form-label">Address</label>
-        <textarea id="company-address" class="form-control" rows="2" autocomplete="off"></textarea>
+        <label class="form-label">GSTIN *</label>
+        <input type="text" id="company-gstin" class="form-control" required autocomplete="off">
     </div>
-    <div class="form-grid">
-        <div class="form-group">
-            <label class="form-label">City</label>
-            <input type="text" id="company-city" class="form-control" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label class="form-label">State</label>
-            <select id="company-state" class="form-control">
-                <option value="">Select State</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label">PIN Code</label>
-            <input type="text" id="company-pincode" class="form-control" autocomplete="off" pattern="[0-9]{6}">
-        </div>
+    <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input type="tel" id="company-phone" class="form-control" autocomplete="off">
     </div>
-                    
+    <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="company-email" class="form-control" autocomplete="off">
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="form-label">Address</label>
+    <textarea id="company-address" class="form-control" rows="2" autocomplete="off"></textarea>
+</div>
+
+<div class="form-grid">
+    <div class="form-group">
+        <label class="form-label">City</label>
+        <input type="text" id="company-city" class="form-control" autocomplete="off">
+    </div>
+    <div class="form-group">
+        <label class="form-label">State</label>
+        <select id="company-state" class="form-control">
+            <option value="">Select State</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label">PIN Code</label>
+        <input type="text" id="company-pincode" class="form-control" autocomplete="off" pattern="[0-9]{6}">
+    </div>
+</div>
                     </div>
 
                     <div class="settings-section">
