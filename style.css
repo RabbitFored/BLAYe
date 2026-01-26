@@ -1941,11 +1941,13 @@ select.form-control {
   padding: var(--space-16);
 }
 
+.item-headers,
 .item-grid {
   display: grid;
-  grid-template-columns: 3fr 1fr 1fr 1.5fr 1.25fr 40px; /* Must match .item-headers */
+  /* Product | Rolls | Qty | Rate | Discount | Amount | Action */
+  grid-template-columns: 3fr 0.8fr 1fr 1fr 1.5fr 1.25fr 40px; 
   gap: var(--space-12);
-  align-items: center; /* Vertically align items in the center of the row */
+  align-items: center;
 }
 
 .item-grid .form-group {

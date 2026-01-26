@@ -16,7 +16,7 @@ const BACKEND_URL = 'https://gst-api.theostrich.eu.org/api/v1';
 db.version(1).stores({
   companies: '++id, gstin, name, state, state_code, address, city, pincode, beneficiaryName, accountNumber, ifscCode, bankName, branch, created_at',
   customers: '++id, name, gstin, aadhar, phone, email, state_code, created_at',
-  products: '++id, name, hsn_code, category, stock_quantity, min_stock, rate,  unit, gst_rate, created_at',
+  products: '++id, name, hsn_code, category, stock_quantity, stock_rolls, min_stock, rate,  unit, gst_rate, created_at',
   invoices: '++id, invoice_number, customer_id, date, total_amount, amount_paid, payment_status, created_at',
   payments: '++id, invoice_id, amount, payment_method, payment_date, created_at',
   inventory_transactions: '++id, product_id, transaction_type, quantity, reference_id, created_at',
@@ -380,7 +380,8 @@ class DatabaseService {
       return true;
     }
   }
-
+  
+  
   static async loadCompanyInfo() {
     try {
       const company = await db.companies.orderBy('id').first();
@@ -586,9 +587,17 @@ class InvoiceService {
       for (const item of invoiceData.items) {
         const product = await db.products.get(item.product_id);
         if (product) {
+          // 1. Calculate new stock for PRIMARY unit (Kgs/Mtrs)
           const newStock = Math.max(0, product.stock_quantity - item.quantity);
+          
+          // 2. NEW: Calculate new stock for SECONDARY unit (Rolls)
+    // We default to 0 if stock_rolls doesn't exist yet
+          const currentRolls = product.stock_rolls || 0;
+          const newStockRolls = Math.max(0, currentRolls - (item.rolls || 0));
+    
           await db.products.update(item.product_id, { 
             stock_quantity: newStock,
+            stock_rolls: newStockRolls, // Update the database
             updated_at: new Date()
           });
 
@@ -736,7 +745,7 @@ class InvoiceService {
 
                 <div class="total-row" style="font-weight: 500; border-top: 1px dashed var(--color-border); padding-top: var(--space-4); margin-top: var(--space-4);">
                   <span>Taxable Amount:</span>
-                  <span>${Utils.formatCurrency(invoice.netSubtotal || (invoice.subtotal - displayDiscountTotal))}</span>
+                  <span>${Utils.formatCurrency(invoice.netSubtotal || (invoice.subtotal - (invoice.totalDiscount || 0)))}</span>
                 </div>
 
                 ${taxRows}
@@ -910,7 +919,7 @@ class PDFService {
       doc.text(`${Utils.formatDate(invoice.date)}`, rightColumnX + 26, customerY + 12);
       
       const tableStartY = customerMetaY + 10;
-      const head = [['#', 'Description', 'HSN', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
+      const head = [['#', 'Description','Rolls', 'HSN', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
       const body = invoice.items.map((item, index) => {
     
         // FIXED: Change 'item.netAmount' to 'item.amount'
@@ -928,10 +937,15 @@ class PDFService {
         }
         }
         return [
-            index + 1, item.name, item.hsn_code || 'N/A',
-            `${item.quantity} ${item.unit}`, item.rate.toFixed(2),
+            index + 1, 
+            item.name, 
+            item.rolls || '-', // NEW: Show Rolls (or dash if 0/null)
+            item.hsn_code || 'N/A',
+            `${item.quantity} ${item.unit}`, 
+            item.rate.toFixed(2),
             discountText, // NEW data cell
-            `${item.gst_rate}%`, itemTotal.toFixed(2)
+            `${item.gst_rate}%`, 
+            itemTotal.toFixed(2)
         ];
     });
 
@@ -951,6 +965,7 @@ class PDFService {
         columnStyles: {
             // UPDATED: Column indices have shifted
             0: { halign: 'center' }, 
+            2: { halign: 'center' },
             3: { halign: 'left' }, 
             4: { halign: 'center' }, 
             5: { halign: 'center' }, 
@@ -2564,6 +2579,8 @@ class ProductController {
         document.getElementById('product-hsn').value = product.hsn_code || '';
         document.getElementById('product-unit').value = product.unit || '';
         document.getElementById('product-opening-stock').value = product.stock_quantity || '';
+        // NEW: Load rolls
+        document.getElementById('product-opening-rolls').value = product.stock_rolls || '0';
         document.getElementById('product-min-stock').value = product.min_stock || '';
         document.getElementById('product-gst').value = product.gst_rate || '';
         //   products:  , ,, ,  unit, gst_rate, created_at',
@@ -2588,6 +2605,8 @@ class ProductController {
     rate: parseFloat(document.getElementById('product-rate').value),
     gst_rate: parseInt(document.getElementById('product-gst').value),
     stock_quantity: parseFloat(document.getElementById('product-opening-stock').value),
+    // NEW: Save rolls
+    stock_rolls: parseInt(document.getElementById('product-opening-rolls').value) || 0,
     min_stock: parseFloat(document.getElementById('product-min-stock').value),
     category: document.getElementById('product-category').value
         //created_at: new Date()
@@ -2747,6 +2766,8 @@ class InvoiceController {
         for (const item of invoice.items) {
           await db.products.where('id').equals(item.product_id).modify(product => {
             product.stock_quantity += item.quantity;
+            // NEW: Restore Rolls
+            product.stock_rolls = (product.stock_rolls || 0) + (item.rolls || 0);
           });
           await db.inventory_transactions.add({
             product_id: item.product_id,
@@ -3126,6 +3147,9 @@ static calculateTotals() {
         <div class="item-product">
           <select class="form-control product-select" required></select>
         </div>
+        <div class="item-rolls">
+          <input type="number" class="form-control rolls-input" placeholder="Rolls" min="0" step="1">
+        </div>
         <div class="item-quantity">
           <input type="number" class="form-control quantity-input" placeholder="Qty" step="any" min="0" required>
         </div>
@@ -3205,6 +3229,10 @@ static calculateTotals() {
         const quantity = parseFloat(quantityInput.value);
         const rate = parseFloat(rateInput.value);
 
+        // NEW: Capture Rolls
+        const rollsInput = row.querySelector('.rolls-input');
+        const rolls = rollsInput ? parseInt(rollsInput.value) || 0 : 0;
+
         const lineTotal = Utils.calculateAmount(quantity, rate);
         grossSubtotal += lineTotal;
 
@@ -3231,6 +3259,7 @@ static calculateTotals() {
           name: product.name,
           hsn_code: product.hsn_code,
           quantity: quantity,
+          rolls: rolls, // NEW: Save rolls to the item
           unit: product.unit,
           rate: rate,
           discount: { type: discountType, value: discountValue },
@@ -3645,7 +3674,10 @@ class InventoryController {
           <tr class="product-summary-row" data-product-id="${product.id}">
             <td><button class="expand-btn" data-product-id="${product.id}">+</button></td>
             <td>${Utils.sanitizeHtml(product.name)}</td>
-            <td>${product.stock_quantity} ${product.unit || 'PCS'}</td>
+            <td>
+            ${product.stock_quantity} ${product.unit || 'PCS'}<br>
+            <small class="text-secondary">${product.stock_rolls || 0} Rolls</small>
+            </td>
             <td>${product.min_stock} ${product.unit || 'PCS'}</td>
             <td class="currency">${Utils.formatCurrency(product.rate || 0)}</td>
             <td class="currency">${Utils.formatCurrency(stockValue)}</td>
@@ -3715,9 +3747,13 @@ class InventoryController {
     const productId = parseInt(document.getElementById('adj-product-select').value);
     const type = document.getElementById('adj-type-select').value;
     const quantity = parseFloat(document.getElementById('adj-quantity').value);
-    const notes = document.getElementById('adj-notes').value.trim();
-    if (!productId || !quantity || quantity <= 0) {
-      NotificationService.error('Please select a product and enter a valid quantity.');
+    const rolls = parseInt(document.getElementById('adj-rolls').value) || 0; // NEW
+    // FIX: Ensure 'notes' is defined properly
+    const notesInput = document.getElementById('adj-notes');
+    const notes = notesInput ? notesInput.value.trim() : '';
+    
+    if (!productId || (quantity === 0 && rolls === 0)) {
+      NotificationService.error('Please enter a quantity or rolls to adjust.');
       return;
     }
     LoadingService.show('Saving adjustment...');
@@ -3725,14 +3761,19 @@ class InventoryController {
       const product = await db.products.get(productId);
       if (!product) throw new Error('Product not found');
       const adjustmentQty = type === 'addition' ? quantity : -quantity;
+      const adjRolls = type === 'addition' ? rolls : -rolls; // NEW
+
       const newStock = product.stock_quantity + adjustmentQty;
+      const newRolls = (product.stock_rolls || 0) + adjRolls; // NEW
+
       await db.transaction('rw', db.products, db.inventory_transactions, async () => {
-        await db.products.update(productId, { stock_quantity: newStock });
+        await db.products.update(productId, { stock_quantity: newStock, stock_rolls: newRolls });
         await db.inventory_transactions.add({
           product_id: productId,
           transaction_type: 'adjustment',
           quantity: adjustmentQty,
-          notes: notes || `Manual ${type}`,
+          // We add rolls info to the notes automatically if not provided
+          notes: notes || `Manual ${type} (Rolls: ${adjRolls > 0 ? '+' : ''}${adjRolls})`,
           created_at: new Date()
         });
       });
