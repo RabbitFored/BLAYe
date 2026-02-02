@@ -14,5 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
   // Existing feature: Print PDF (if you have this logic)
-  printComponentPDF: (data) => ipcRenderer.send('print-component-pdf', data)
+  printComponentPDF: (data) => ipcRenderer.send('print-component-pdf', data),
+  // NEW: GST Functions
+  getGstCaptcha: () => ipcRenderer.invoke('gst-get-captcha'),
+  getGstDetails: (data) => ipcRenderer.invoke('gst-get-details', data)
+
 });

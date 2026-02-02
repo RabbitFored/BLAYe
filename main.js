@@ -1,5 +1,5 @@
 // main.js - The entry point for your Electron app
-const { app, BrowserWindow, ipcMain, autoUpdater, dialog} = require('electron');
+const { app, BrowserWindow, ipcMain, autoUpdater, dialog, net, session} = require('electron');
 const path = require('path');
 const fs = require('fs'); // NEW: Import Node.js File System module
 const os = require('os'); // NEW: Import Node.js Operating System module
@@ -9,6 +9,91 @@ const os = require('os'); // NEW: Import Node.js Operating System module
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
+
+// --- GST PORTAL INTEGRATION (Bypassing CORS) ---
+
+// Helper function to wrap Electron's net.request in a Promise
+function makeRequest(url, options = {}, body = null) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({ url, ...options });
+    
+    // Mimic a real browser to avoid being blocked
+    request.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    request.setHeader('Referer', 'https://services.gst.gov.in/services/searchtp');
+    
+    if (body) {
+      request.setHeader('Content-Type', 'application/json');
+      request.write(JSON.stringify(body));
+    }
+
+    request.on('response', (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const data = Buffer.concat(chunks);
+        resolve({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          data: data
+        });
+      });
+    });
+
+    request.on('error', (error) => reject(error));
+    request.end();
+  });
+}
+
+ipcMain.handle('gst-get-captcha', async () => {
+  try {
+    // 1. Clear previous session cookies to ensure a fresh start
+    await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+
+    // 2. Hit the main search page first to initialize session cookies (Just like Python's session.get)
+    await makeRequest('https://services.gst.gov.in/services/searchtp');
+
+    // 3. Get the Captcha Image
+    const response = await makeRequest('https://services.gst.gov.in/services/captcha?v=' + Date.now());
+    
+    // 4. Convert Buffer to Base64
+    const base64Image = response.data.toString('base64');
+    
+    return { 
+      success: true, 
+      image: `data:image/png;base64,${base64Image}` 
+    };
+
+  } catch (error) {
+    console.error('GST Captcha Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('gst-get-details', async (event, { gstin, captcha }) => {
+  try {
+    // 1. Prepare the payload
+    const payload = {
+      gstin: gstin,
+      captcha: captcha
+    };
+
+    // 2. Send POST request (Cookies are automatically handled by Electron's defaultSession)
+    const response = await makeRequest(
+      'https://services.gst.gov.in/services/api/search/taxpayerDetails', 
+      { method: 'POST' }, 
+      payload
+    );
+
+    // 3. Parse JSON response
+    const jsonResponse = JSON.parse(response.data.toString());
+    
+    return jsonResponse;
+
+  } catch (error) {
+    console.error('GST Details Error:', error);
+    return { error: error.message };
+  }
+});
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
