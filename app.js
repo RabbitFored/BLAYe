@@ -2102,17 +2102,12 @@ class CustomerController {
     if (captchaLoading) captchaLoading.classList.remove('hidden');
 
     try {
-      if (!window.electronAPI) throw new Error('Electron API not found');
-        
-        const data = await window.electronAPI.getGstCaptcha();
+      const response = await fetch(`${BACKEND_URL}/getCaptcha`);
+      if (!response.ok) throw new Error('Failed to fetch captcha from backend.');
 
-        if (data.success) {
-            // We don't need sessionId anymore as Electron handles cookies internally
-            captchaImg.src = data.image;
-            appState.gstSessionId = 'electron-session'; // Just a placeholder
-        } else {
-            throw new Error(data.error);
-        }
+      const data = await response.json();
+      appState.gstSessionId = data.sessionId;
+      captchaImg.src = data.image;
 
     } catch (error) {
       console.error('Captcha fetch error:', error);
@@ -2285,49 +2280,39 @@ class CustomerController {
 
     LoadingService.show('Fetching GSTIN data...');
     try {
-        // REPLACED: fetch call with Electron API
-        if (!window.electronAPI) throw new Error('Electron API not found');
+      const response = await fetch(`${BACKEND_URL}/getGSTDetails`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, GSTIN: gstin, captcha })
+      });
 
-        const data = await window.electronAPI.getGstDetails({
-            gstin: gstin,
-            captcha: captcha
-        });
+      if (!response.ok) throw new Error('Backend server returned an error.');
+      
+      const data = await response.json();
+      console.log('GSTIN API response:', data);
+      if (data.error || data.errorDesc || data.errorCode || data.sts === 'CAN') {
+        // Use a more generic but helpful error message for all API failures
+        NotificationService.error('Invalid GSTIN or Captcha. Please try again.');
+        this._fetchAndDisplayCaptcha(); 
+        document.getElementById('customer-captcha').value = '';
+      } else {
+        // FIXED: Mapped the new API response keys to the form fields.
+        document.getElementById('customer-name').value = data.tradeNam || data.lgnm || '';
+        document.getElementById('customer-address').value = data.pradr?.adr || '';
+        
+        // Clear fields that are not provided separately in this API response
+        document.getElementById('customer-city').value = '';
+        document.getElementById('customer-pincode').value = '';
 
-        console.log('GSTIN API response:', data);
-
-        // API Error Handling (Matches GST Portal response structure)
-        if (data.errorCode || (data.error && data.error.message)) {
-            NotificationService.error('Invalid Captcha or GSTIN. Please try again.');
-            this._fetchAndDisplayCaptcha(); 
-            document.getElementById('customer-captcha').value = '';
-        } else if (data.gstin) {
-            // Success! Populate fields
-            document.getElementById('customer-name').value = data.tradeNam || data.lgnm || '';
-            
-            // Handle Address (The structure might vary slightly from GST portal directly)
-            let address = '';
-            if (data.pradr && data.pradr.addr) {
-                const a = data.pradr.addr;
-                address = `${a.bno || ''} ${a.st || ''} ${a.loc || ''}`.trim();
-                document.getElementById('customer-pincode').value = a.pncd || '';
-                document.getElementById('customer-city').value = a.dst || a.city || '';
-            } else {
-                 document.getElementById('customer-address').value = data.pradr?.adr || '';
-            }
-            if (address) document.getElementById('customer-address').value = address;
-
-            // Set State
+        // Set the state from the first two digits of the GSTIN itself
+        if (data.gstin) {
             const stateCode = data.gstin.substring(0, 2);
             document.getElementById('customer-state').value = stateCode;
-
-            NotificationService.success('Customer data fetched successfully!');
-            document.getElementById('captcha-section').classList.add('hidden');
-        } else {
-             // Fallback error
-             NotificationService.error('Could not fetch details. Please try again.');
-             this._fetchAndDisplayCaptcha();
         }
 
+        NotificationService.success('Customer data fetched successfully!');
+        document.getElementById('captcha-section').classList.add('hidden');
+      }
     } catch (error) {
       console.error('GSTIN fetch failed:', error);
       NotificationService.error('An unexpected error occurred. Check backend connection.');
