@@ -1,6 +1,6 @@
 {
   "name": "BLAYe",
-  "version": "0.0.45",
+  "version": "0.0.46",
   "description": "A Node.js billing application",
   "main": "main.js",
   "scripts": {
