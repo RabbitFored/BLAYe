@@ -919,7 +919,7 @@ class PDFService {
       doc.text(`${Utils.formatDate(invoice.date)}`, rightColumnX + 26, customerY + 12);
       
       const tableStartY = customerMetaY + 10;
-      const head = [['#', 'Description','Rolls', 'HSN', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
+      const head = [['#', 'Description', 'HSN', 'Rolls', 'Qty', 'Rate', 'Discount', 'GST%', 'Total (INR)']]; // Added 'Discount'
       const body = invoice.items.map((item, index) => {
     
         // FIXED: Change 'item.netAmount' to 'item.amount'
@@ -939,8 +939,8 @@ class PDFService {
         return [
             index + 1, 
             item.name, 
-            item.rolls || '-', // NEW: Show Rolls (or dash if 0/null)
             item.hsn_code || 'N/A',
+            item.rolls || '-', // NEW: Show Rolls (or dash if 0/null)
             `${item.quantity} ${item.unit}`, 
             item.rate.toFixed(2),
             discountText, // NEW data cell
