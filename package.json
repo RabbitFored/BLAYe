@@ -2,10 +2,10 @@
   "name": "BLAYe",
   "version": "0.0.46",
   "description": "A Node.js billing application",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron-forge start",
-    "dev": "nodemon main.js",
+    "dev": "nodemon src/main/main.js",
     "test": "jest",
     "package": "electron-forge package",
     "make": "electron-forge make"
