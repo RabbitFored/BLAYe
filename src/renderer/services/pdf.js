@@ -366,10 +366,14 @@ class PDFService {
       NotificationService.error('Failed to generate PDF. Please try again.');
     }
   }
-  // Method to generate a PDF for the Sales Report
-  static async generateSalesReportPDF(reportData) {
-    LoadingService.show('Creating PDF...');
+  static async generateReportPDF(reportData, action = 'download') {
+    LoadingService.show(action === 'print' ? 'Preparing Print...' : 'Creating PDF...');
     try {
+      if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF.API.autoTable !== 'function') {
+        NotificationService.warning('PDF library not fully loaded. Please check internet and try again.');
+        return;
+      }
+
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const company = appState.company || {};
@@ -378,12 +382,12 @@ class PDFService {
       const leftMargin = 15;
       const rightMargin = pageWidth - 15;
       
-      // --- New Professional Header (adapted from Invoice) ---
+      // --- Professional Header ---
       let headerY = 15;
       const lineSpacing = 5;
       doc.setFontSize(18);
       doc.setFont(undefined, 'bold');
-      doc.text(String(company.name?.toUpperCase() ?? ''), pageWidth / 2, headerY, { align: 'center' });
+      doc.text(String(company.name?.toUpperCase() ?? 'YOUR COMPANY'), pageWidth / 2, headerY, { align: 'center' });
       headerY += lineSpacing + 2;
       doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
@@ -400,17 +404,17 @@ class PDFService {
       headerY += 5;
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
-      doc.text('SALES REPORT', pageWidth / 2, headerY, { align: 'center', baseline: 'middle' });
+      doc.text(reportData.title.toUpperCase(), pageWidth / 2, headerY, { align: 'center', baseline: 'middle' });
       headerY += 5;
       doc.line(leftMargin, headerY, rightMargin, headerY); // Bottom line
       
-      // --- Report-Specific Details ---
+      // --- Report Options ---
       headerY += 8;
       doc.setFontSize(10);
       doc.setFont(undefined, 'bold');
-      doc.text('Report Period:', leftMargin, headerY);
+      doc.text('Date/Period:', leftMargin, headerY);
       doc.setFont(undefined, 'normal');
-      doc.text(reportData.dateRange, leftMargin + 30, headerY);
+      doc.text(reportData.dateRange || 'All Time', leftMargin + 25, headerY);
 
       // --- Report Summary ---
       let summaryY = headerY + 10;
@@ -419,57 +423,155 @@ class PDFService {
       doc.text('Summary', leftMargin, summaryY);
       doc.setFont(undefined, 'normal');
       summaryY += 6;
-      reportData.summary.forEach(item => {
-        doc.text(item.label + ':', 15, summaryY);
-        let valueStr;
-        if (item.isCurrency) {
-          valueStr = (item.value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        } else {
-          valueStr = item.value.toString();
-        }
-        doc.text(valueStr, rightMargin, summaryY, { align: 'right' });
-        summaryY += 7;
-      });
       
-      // --- Main Data Table ---
-      const head = [['Invoice #', 'Date', 'Customer', 'Amount (INR)', 'Status']];
-      const body = [];
-      for(const invoice of reportData.invoices) {
-        const customer = await db.customers.get(invoice.customer_id);
-        body.push([
-          invoice.invoice_number,
-          Utils.formatDate(invoice.date),
-          customer?.name || 'N/A',
-          (invoice.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-          invoice.payment_status
-        ]);
+      if (reportData.summary && reportData.summary.length > 0) {
+        reportData.summary.forEach(item => {
+          doc.text(item.label + ':', 15, summaryY);
+          let valueStr;
+          if (item.isCurrency) {
+            valueStr = (item.value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          } else {
+            valueStr = (item.value || 0).toString();
+          }
+          doc.text(valueStr, rightMargin, summaryY, { align: 'right' });
+          summaryY += 7;
+        });
       }
       
-      doc.autoTable({
-        head: head, body: body, startY: summaryY + 5,
-        theme: 'grid',
-        headStyles: { fillColor: [20, 30, 40], textColor: 255 }, // Dark header for reports
-        columnStyles: { 3: { halign: 'right' } },
-        didDrawPage: function (data) {
-          // --- Footer with Page Numbers ---
-          doc.setFontSize(8);
-          doc.setTextColor(100);
-          const pageCount = doc.internal.getNumberOfPages();
+      // --- Tables Definition ---
+      const tableDefinitions = [];
+      let currentStartY = summaryY + 5;
 
-          const dateStr = `Generated on: ${new Date().toLocaleDateString('en-IN')}`;
-          doc.text(dateStr, data.settings.margin.left, pageHeight - 10);
-
-          const pageNumStr = `Page ${data.pageNumber} of ${pageCount}`;
-          doc.text(pageNumStr, rightMargin, pageHeight - 10, { align: 'right' });
+      if (reportData.type === 'sales') {
+        const head = [['Invoice #', 'Date', 'Customer', 'Amount (INR)', 'Status']];
+        const body = [];
+        for(const invoice of reportData.invoices) {
+          const customer = await db.customers.get(invoice.customer_id);
+          body.push([
+            invoice.invoice_number,
+            Utils.formatDate(invoice.date),
+            customer?.name || 'N/A',
+            (invoice.total_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+            invoice.payment_status
+          ]);
         }
-      });
+        tableDefinitions.push({ head, body, alignRightCols: [3] });
+      } 
+      else if (reportData.type === 'customer') {
+        const head = [['Customer', 'GSTIN', 'Phone', 'Invoices', 'Sales (INR)', 'Outstanding (INR)']];
+        const body = (reportData.rows || []).map(r => [
+          r.name, r.gstin, r.phone, r.invoiceCount.toString(),
+          (r.totalSales || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+          (r.outstanding || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+        ]);
+        tableDefinitions.push({ head, body, alignRightCols: [3, 4, 5] });
+      }
+      else if (reportData.type === 'inventory') {
+        const head = [['Product', 'HSN', 'Stock', 'Rolls', 'Rate (INR)', 'Value (INR)', 'Status']];
+        const body = (reportData.rows || []).map(r => [
+          r.name, r.hsn || '-', `${r.stock} ${r.unit}`, r.rolls.toString(),
+          (r.rate || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+          (r.value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+          r.status
+        ]);
+        tableDefinitions.push({ head, body, alignRightCols: [2, 3, 4, 5] });
+      }
+      else if (reportData.type === 'gst') {
+        if (reportData.b2b && reportData.b2b.length > 0) {
+          tableDefinitions.push({
+            title: "B2B Invoices (Registered)",
+            head: [['GSTIN', 'Customer', 'Invoice #', 'Date', 'Value', 'Taxable', 'Tax']],
+            body: reportData.b2b.map(item => [
+              item.customer?.gstin || '-', 
+              item.customer?.name || 'Unknown', 
+              item.invoice?.invoice_number || '-', 
+              Utils.formatDate(item.invoice?.date),
+              (item.invoice?.total_amount || 0).toFixed(2), 
+              (item.invoice?.subtotal || 0).toFixed(2), 
+              (item.invoice?.tax_amount || 0).toFixed(2)
+            ]),
+            alignRightCols: [4, 5, 6]
+          });
+        }
+        if (reportData.b2c && reportData.b2c.length > 0) {
+          tableDefinitions.push({
+            title: "B2C Sales (Unregistered)",
+            head: [['State', 'Rate (%)', 'Taxable Value (INR)']],
+            body: reportData.b2c.map(item => [
+              item.state, `${item.rate}%`, (item.taxableValue || 0).toFixed(2)
+            ]),
+            alignRightCols: [2]
+          });
+        }
+        if (reportData.hsn && reportData.hsn.length > 0) {
+          tableDefinitions.push({
+            title: "HSN/SAC Summary",
+            head: [['HSN', 'Description', 'Qty', 'Taxable Value', 'Tax Amount']],
+            body: reportData.hsn.map(item => [
+              item.hsn, item.description, item.qty,
+              (item.taxableValue || 0).toFixed(2), (item.tax || 0).toFixed(2)
+            ]),
+            alignRightCols: [2, 3, 4]
+          });
+        }
+      }
+
+      // --- Draw Tables ---
+      for (const tableDef of tableDefinitions) {
+        if (tableDef.title) {
+          doc.setFontSize(11);
+          doc.setFont(undefined, 'bold');
+          doc.text(tableDef.title, leftMargin, currentStartY + 10);
+          currentStartY += 12;
+        }
+
+        const colStyles = {};
+        if (tableDef.alignRightCols) {
+            tableDef.alignRightCols.forEach(idx => { colStyles[idx] = { halign: 'right' }});
+        }
+
+        doc.autoTable({
+          head: tableDef.head,
+          body: tableDef.body,
+          startY: currentStartY,
+          theme: 'grid',
+          headStyles: { fillColor: [20, 30, 40], textColor: 255 }, // Dark header for reports
+          columnStyles: colStyles,
+          didParseCell: function (data) {
+            if (data.row.section === 'head' && tableDef.alignRightCols) {
+               if (tableDef.alignRightCols.includes(data.column.index)) {
+                  data.cell.styles.halign = 'right';
+               }
+            }
+          },
+          didDrawPage: function (data) {
+            // Footer with Page Numbers
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            const pageCount = doc.internal.getNumberOfPages();
+            const dateStr = `Generated on: ${new Date().toLocaleDateString('en-IN')}`;
+            doc.text(dateStr, data.settings.margin.left, pageHeight - 10);
+            const pageNumStr = `Page ${data.pageNumber} of ${pageCount}`;
+            doc.text(pageNumStr, rightMargin, pageHeight - 10, { align: 'right' });
+          }
+        });
+        currentStartY = doc.lastAutoTable.finalY + 10;
+      }
       
-      const date = new Date().toISOString().split('T')[0];
-      doc.save(`Sales-Report-${date}.pdf`);
+      const fileSafeDate = new Date().toISOString().split('T')[0];
+      const filename = `${reportData.title.replace(/[\s/]/g, '-')}-${fileSafeDate}.pdf`;
+      
+      if (action === 'print') {
+        const blobUrl = doc.output('bloburl');
+        window.open(blobUrl, '_blank');
+      } else {
+        doc.save(filename);
+        NotificationService.success('PDF downloaded successfully!');
+      }
 
     } catch (error) {
       console.error('Failed to create report PDF:', error);
-      NotificationService.error('Could not create report PDF.');
+      NotificationService.error(`Could not ${action} report.`);
     } finally {
       LoadingService.hide();
     }

@@ -1,8 +1,5 @@
 class ReportController {
   static loadPage() {
-    //this.setupEventListeners();
-
-    // Formatting dates in the local timezone to avoid UTC conversion issues.
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -16,7 +13,8 @@ class ReportController {
       const reportType = e.target.dataset.report;
       if (reportType === 'sales') this.generateSalesReport();
       else if (reportType === 'gst') this.generateGstReport();
-      else if (reportType) NotificationService.info(`${reportType.toUpperCase()} report coming soon!`);
+      else if (reportType === 'customer') this.generateCustomerReport();
+      else if (reportType === 'inventory') this.generateInventoryReport();
     });
 
     document.getElementById('close-report').addEventListener('click', () => {
@@ -37,6 +35,197 @@ class ReportController {
     document.getElementById('download-report').addEventListener('click', () => this.downloadReport());
   }
 
+  // ────────────────────────────────────────────────
+  // Customer Report
+  // ────────────────────────────────────────────────
+  static async generateCustomerReport() {
+    LoadingService.show('Generating Customer Report...');
+    try {
+      const startDate = document.getElementById('report-start-date').value;
+      const endDate = document.getElementById('report-end-date').value;
+      if (!startDate || !endDate) throw new Error('Please select a valid date range.');
+
+      const customers = await db.customers.toArray();
+      const invoices = await db.invoices.where('date').between(startDate, endDate, true, true).toArray();
+
+      const customerMap = {};
+      for (const c of customers) {
+        customerMap[c.id] = { name: c.name, gstin: c.gstin || '-', phone: c.phone || '-', totalSales: 0, invoiceCount: 0, outstanding: 0 };
+      }
+
+      for (const inv of invoices) {
+        const entry = customerMap[inv.customer_id];
+        if (entry) {
+          entry.totalSales += inv.total_amount || 0;
+          entry.invoiceCount++;
+          if (inv.payment_status !== 'paid' && inv.payment_status !== 'cancelled') {
+            entry.outstanding += (inv.total_amount || 0) - (inv.amount_paid || 0);
+          }
+        }
+      }
+
+      const rows = Object.values(customerMap).filter(c => c.invoiceCount > 0)
+        .sort((a, b) => b.totalSales - a.totalSales);
+
+      const totalSales = rows.reduce((s, r) => s + r.totalSales, 0);
+      const totalOutstanding = rows.reduce((s, r) => s + r.outstanding, 0);
+
+      appState.currentReportData = {
+        type: 'customer',
+        title: 'Customer Report',
+        dateRange: `From ${Utils.formatDate(startDate)} to ${Utils.formatDate(endDate)}`,
+        summary: [
+          { label: 'Total Customers', value: rows.length, isCurrency: false },
+          { label: 'Total Sales', value: totalSales, isCurrency: true },
+          { label: 'Total Outstanding', value: totalOutstanding, isCurrency: true },
+        ],
+        rows: rows
+      };
+
+      // Render into sales-report-content (reusing that container)
+      document.getElementById('gst-report-content').classList.add('hidden');
+      document.getElementById('sales-report-content').classList.remove('hidden');
+
+      const reportHTML = `
+        <div class="report-summary">
+          ${appState.currentReportData.summary.map(item => `
+            <div class="summary-card">
+              <h4>${item.label}</h4>
+              <p>${item.isCurrency ? Utils.formatCurrency(item.value) : item.value}</p>
+            </div>
+          `).join('')}
+        </div>
+        <div class="table-container" style="margin-top: 24px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Customer</th><th>GSTIN</th><th>Phone</th>
+                <th class="text-right">Invoices</th><th class="text-right">Total Sales (₹)</th>
+                <th class="text-right">Outstanding (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${Utils.sanitizeHtml(r.name)}</td><td>${r.gstin}</td><td>${r.phone}</td>
+                  <td class="text-right">${r.invoiceCount}</td>
+                  <td class="text-right">${Utils.formatNumber(r.totalSales)}</td>
+                  <td class="text-right ${r.outstanding > 0 ? 'text-error' : ''}">${Utils.formatNumber(r.outstanding)}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="6" class="text-center">No customer data for this period.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      document.getElementById('sales-report-content').innerHTML = reportHTML;
+      document.getElementById('report-title').textContent = 'Customer Report';
+      document.getElementById('report-display').classList.remove('hidden');
+
+    } catch (error) {
+      console.error('Failed to generate customer report:', error);
+      NotificationService.error(error.message || 'Could not generate customer report.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Inventory Report
+  // ────────────────────────────────────────────────
+  static async generateInventoryReport() {
+    LoadingService.show('Generating Inventory Report...');
+    try {
+      const products = await db.products.toArray();
+      const threshold = parseInt(appState.settings.low_stock_threshold || '10');
+
+      let totalValue = 0;
+      let lowStockCount = 0;
+      let outOfStockCount = 0;
+
+      const rows = products.map(p => {
+        const stock = p.stock_quantity || 0;
+        const rolls = p.stock_rolls || 0;
+        const value = stock * (p.rate || 0);
+        totalValue += value;
+
+        let status = 'In Stock';
+        if (stock <= 0) { status = 'Out of Stock'; outOfStockCount++; }
+        else if (stock <= (p.min_stock || threshold)) { status = 'Low Stock'; lowStockCount++; }
+
+        return {
+          name: p.name, hsn: p.hsn_code || '-', unit: p.unit || 'PCS',
+          stock, rolls, minStock: p.min_stock || threshold, rate: p.rate || 0, value, status
+        };
+      }).sort((a, b) => a.stock - b.stock);
+
+      appState.currentReportData = {
+        type: 'inventory',
+        title: 'Inventory Report',
+        dateRange: `As of ${Utils.formatDate(new Date())}`,
+        summary: [
+          { label: 'Total Products', value: products.length, isCurrency: false },
+          { label: 'Total Stock Value', value: totalValue, isCurrency: true },
+          { label: 'Low Stock Items', value: lowStockCount, isCurrency: false },
+          { label: 'Out of Stock', value: outOfStockCount, isCurrency: false },
+        ],
+        rows: rows
+      };
+
+      document.getElementById('gst-report-content').classList.add('hidden');
+      document.getElementById('sales-report-content').classList.remove('hidden');
+
+      const statusClass = (s) => s === 'Out of Stock' ? 'text-error' : s === 'Low Stock' ? 'text-warning' : 'text-success';
+
+      const reportHTML = `
+        <div class="report-summary">
+          ${appState.currentReportData.summary.map(item => `
+            <div class="summary-card">
+              <h4>${item.label}</h4>
+              <p>${item.isCurrency ? Utils.formatCurrency(item.value) : item.value}</p>
+            </div>
+          `).join('')}
+        </div>
+        <div class="table-container" style="margin-top: 24px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Product</th><th>HSN</th><th>Stock</th><th>Rolls</th>
+                <th>Min Stock</th><th class="text-right">Rate (₹)</th>
+                <th class="text-right">Value (₹)</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>${Utils.sanitizeHtml(r.name)}</td><td>${r.hsn}</td>
+                  <td>${r.stock} ${r.unit}</td><td>${r.rolls}</td>
+                  <td>${r.minStock}</td>
+                  <td class="text-right">${Utils.formatNumber(r.rate)}</td>
+                  <td class="text-right">${Utils.formatNumber(r.value)}</td>
+                  <td><span class="${statusClass(r.status)}">${r.status}</span></td>
+                </tr>
+              `).join('') || '<tr><td colspan="8" class="text-center">No products found.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      document.getElementById('sales-report-content').innerHTML = reportHTML;
+      document.getElementById('report-title').textContent = 'Inventory Report';
+      document.getElementById('report-display').classList.remove('hidden');
+
+    } catch (error) {
+      console.error('Failed to generate inventory report:', error);
+      NotificationService.error(error.message || 'Could not generate inventory report.');
+    } finally {
+      LoadingService.hide();
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // GST / GSTR-1 Report (existing)
+  // ────────────────────────────────────────────────
   static async generateGstReport() {
     LoadingService.show('Generating GSTR-1 Report...');
     try {
@@ -55,11 +244,9 @@ class ReportController {
         const customer = await db.customers.get(invoice.customer_id);
         const isB2B = Utils.validateGSTIN(customer.gstin);
 
-        // Categorize invoices
         if (isB2B) {
           b2bInvoices.push({ invoice, customer });
         } else {
-          // B2C Small (we're ignoring B2C Large for simplicity for now)
           const key = `${customer.state_code}_${invoice.items[0]?.gst_rate || 0}`;
           if (!b2cSmallSummary[key]) {
             b2cSmallSummary[key] = { state: customer.state, rate: invoice.items[0]?.gst_rate || 0, taxableValue: 0 };
@@ -67,7 +254,6 @@ class ReportController {
           b2cSmallSummary[key].taxableValue += invoice.subtotal || 0;
         }
 
-        // Aggregate HSN data
         for (const item of invoice.items) {
           const hsnKey = item.hsn_code || 'N/A';
           if (!hsnSummary[hsnKey]) {
@@ -82,6 +268,7 @@ class ReportController {
       appState.currentReportData = { 
         type: 'gst',
         title: 'GSTR-1 Summary',
+        dateRange: `From ${Utils.formatDate(startDate)} to ${Utils.formatDate(endDate)}`,
         b2b: b2bInvoices, 
         b2c: Object.values(b2cSmallSummary), 
         hsn: Object.values(hsnSummary) 
@@ -90,7 +277,6 @@ class ReportController {
       document.getElementById('sales-report-content').classList.add('hidden');
       document.getElementById('gst-report-content').classList.remove('hidden'); 
 
-      // Generate HTML for each tab
       this._renderGstReportTabs(appState.currentReportData);
 
       document.getElementById('report-title').textContent = appState.currentReportData.title;
@@ -105,7 +291,6 @@ class ReportController {
   }
 
   static _renderGstReportTabs(data) {
-    // B2B Tab
     let b2bHtml = `
       <table class="data-table"><thead><tr><th>Customer GSTIN</th><th>Customer Name</th><th>Invoice #</th><th>Date</th><th class="text-right">Value (₹)</th><th class="text-right">Tax (₹)</th></tr></thead><tbody>
       ${data.b2b.map(({invoice, customer}) => `
@@ -116,7 +301,6 @@ class ReportController {
       </tbody></table>`;
     document.getElementById('tab-b2b').innerHTML = b2bHtml;
 
-    // B2C Small Tab
     let b2cHtml = `
       <table class="data-table"><thead><tr><th>State</th><th>Rate (%)</th><th class="text-right">Taxable Value (₹)</th></tr></thead><tbody>
       ${data.b2c.map(item => `
@@ -126,7 +310,6 @@ class ReportController {
       </tbody></table>`;
     document.getElementById('tab-b2c').innerHTML = b2cHtml;
 
-    // HSN Summary Tab
     let hsnHtml = `
       <table class="data-table"><thead><tr><th>HSN</th><th>Description</th><th class="text-right">Quantity</th><th class="text-right">Taxable Value (₹)</th><th class="text-right">Tax (₹)</th></tr></thead><tbody>
       ${data.hsn.map(item => `
@@ -138,6 +321,9 @@ class ReportController {
     document.getElementById('tab-hsn').innerHTML = hsnHtml;
   }
 
+  // ────────────────────────────────────────────────
+  // Sales Report (existing)
+  // ────────────────────────────────────────────────
   static async generateSalesReport() {
     LoadingService.show('Generating sales report...');
     try {
@@ -175,6 +361,7 @@ class ReportController {
       }
 
       appState.currentReportData = {
+        type: 'sales',
         title: 'Sales Report',
         dateRange: `From ${Utils.formatDate(startDate)} to ${Utils.formatDate(endDate)}`,
         summary: [
@@ -227,15 +414,18 @@ class ReportController {
   }
 
   static printReport() {
-    window.print();
+    if (appState.currentReportData) {
+      PDFService.generateReportPDF(appState.currentReportData, 'print');
+    } else {
+      NotificationService.error('No report generated to print.');
+    }
   }
 
   static downloadReport() {
     if (appState.currentReportData) {
-      PDFService.generateSalesReportPDF(appState.currentReportData);
+      PDFService.generateReportPDF(appState.currentReportData, 'download');
     } else {
       NotificationService.error('No report generated to download.');
     }
   }
 }
-

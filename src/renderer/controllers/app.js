@@ -76,6 +76,8 @@ class App {
     document.getElementById('add-customer-btn')?.addEventListener('click', () => CustomerController.openModal());
     document.getElementById('add-product-btn')?.addEventListener('click', () => ProductController.openModal());
     document.getElementById('create-invoice-btn')?.addEventListener('click', () => InvoiceController.openModal());
+    document.getElementById('customer-export')?.addEventListener('click', () => CustomerController.exportCSV());
+    document.getElementById('barcode-scanner')?.addEventListener('click', () => NotificationService.info('Barcode scanning is not available in the browser. This feature works in the desktop app.'));
     
     // --- Form Submissions (FIXED: Passing the 'e' event object) ---
     document.getElementById('customer-form')?.addEventListener('submit', (e) => CustomerController.saveCustomer(e));
@@ -93,7 +95,8 @@ class App {
         const reportType = reportBtn.dataset.report;
         if (reportType === 'sales') ReportController.generateSalesReport();
         else if (reportType === 'gst') ReportController.generateGstReport();
-        else NotificationService.info(`${reportType.toUpperCase()} report coming soon!`);
+        else if (reportType === 'customer') ReportController.generateCustomerReport();
+        else if (reportType === 'inventory') ReportController.generateInventoryReport();
       }
     });
     document.getElementById('close-report')?.addEventListener('click', () => document.getElementById('report-display').classList.add('hidden'));

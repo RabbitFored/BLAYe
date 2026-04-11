@@ -7,6 +7,7 @@
     "start": "electron-forge start",
     "dev": "nodemon src/main/main.js",
     "test": "jest",
+    "test:e2e": "xvfb-run -a playwright test e2e",
     "package": "electron-forge package",
     "make": "electron-forge make"
   },

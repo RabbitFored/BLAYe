@@ -141,6 +141,11 @@ class InventoryController {
       NotificationService.error('Please enter a quantity or rolls to adjust.');
       return;
     }
+
+    if (quantity < 0 || rolls < 0) {
+      NotificationService.error('Please use positive numbers. Select Addition or Deduction to control direction.');
+      return;
+    }
     LoadingService.show('Saving adjustment...');
     try {
       const product = await db.products.get(productId);

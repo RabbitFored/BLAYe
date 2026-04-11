@@ -312,4 +312,50 @@ class CustomerController {
     const modal = document.getElementById('customer-modal');
     if (modal) modal.classList.add('hidden');
   }
+
+  static async exportCSV() {
+    try {
+      const customers = await db.customers.toArray();
+      if (customers.length === 0) {
+        NotificationService.info('No customers to export.');
+        return;
+      }
+
+      const headers = ['Name', 'GSTIN', 'Phone', 'Email', 'Address', 'City', 'State', 'State Code', 'PIN Code', 'Aadhar', 'Created At'];
+      const csvRows = [headers.join(',')];
+
+      for (const c of customers) {
+        const row = [
+          `"${(c.name || '').replace(/"/g, '""')}"`,
+          `"${(c.gstin || '').replace(/"/g, '""')}"`,
+          `"${(c.phone || '').replace(/"/g, '""')}"`,
+          `"${(c.email || '').replace(/"/g, '""')}"`,
+          `"${(c.address || '').replace(/"/g, '""')}"`,
+          `"${(c.city || '').replace(/"/g, '""')}"`,
+          `"${(c.state || '').replace(/"/g, '""')}"`,
+          `"${(c.state_code || '').replace(/"/g, '""')}"`,
+          `"${(c.pincode || '').replace(/"/g, '""')}"`,
+          `"${(c.aadhar || '').replace(/"/g, '""')}"`,
+          `"${(c.created_at ? new Date(c.created_at).toLocaleString() : '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+      }
+
+      const csvData = csvRows.join('\n');
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `customers_export_${Utils.formatDateForInput(new Date())}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      NotificationService.success('Customers exported successfully.');
+    } catch (error) {
+      console.error('Failed to export customers:', error);
+      NotificationService.error('Failed to export customers.');
+    }
+  }
 }
+

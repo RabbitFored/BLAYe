@@ -82,7 +82,7 @@ class Utils {
     };
 
     let result = '';
-    result += (amount > 9999999) ? this.amountInWords(Math.floor(amount / 10000000)) + 'crore ' : '';
+    result += (amount > 9999999) ? this.amountInWords(Math.floor(amount / 10000000)) + ' crore ' : '';
     result += toWords(Math.floor((amount / 100000) % 100), 'lakh ');
     result += toWords(Math.floor((amount / 1000) % 100), 'thousand ');
     result += toWords(Math.floor((amount / 100) % 10), 'hundred ');
@@ -212,3 +212,7 @@ const STATES_OF_INDIA = [
   { "code": "09", "name": "UTTAR PRADESH" }, { "code": "05", "name": "UTTARAKHAND" },
   { "code": "19", "name": "WEST BENGAL" }
 ];
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { Utils, AppState, appState };
+}

@@ -215,7 +215,17 @@ class ProductController {
       
       // Validation
       if (!productData.name || productData.rate <= 0) {
-        NotificationService.error('Name and rate are required');
+        NotificationService.error('Name and rate are required.');
+        return;
+      }
+      
+      if (productData.stock_quantity < 0 || productData.min_stock < 0 || productData.stock_rolls < 0) {
+        NotificationService.error('Stock quantities cannot be negative.');
+        return;
+      }
+
+      if (productData.gst_rate < 0 || productData.gst_rate > 100) {
+        NotificationService.error('GST rate must be between 0 and 100.');
         return;
       }
 
