@@ -12,7 +12,7 @@ build/
 *.min.js
 *.min.css
 
-!libs/*.min.js
+!src/libs/*.min.js
 
 # Environment files
 .env
