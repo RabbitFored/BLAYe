@@ -66,6 +66,9 @@ desktop.ini
 # Test coverage
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Runtime data
 pids/
