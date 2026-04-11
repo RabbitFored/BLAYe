@@ -53,8 +53,8 @@ test('Full Invoice Creation Workflow', async () => {
   await window.selectOption('.item-row .product-select', { label: 'E2E Test Product - ₹150' });
   await window.fill('.item-row .quantity-input', '2');
   
-  // Verify calculations
-  await expect(window.locator('#invoice-total')).toHaveText('₹300'); // 150 * 2 = 300
+  // Verify calculations (150 * 2 = 300 + 12% GST = 336)
+  await expect(window.locator('#invoice-total')).toHaveText('₹336'); 
   
   // Save the invoice
   await window.click('#invoice-form button[type="submit"]');
