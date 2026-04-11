@@ -97,3 +97,5 @@ user-data/
 out/
 android/
 
+#agents
+.agents/

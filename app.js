@@ -468,81 +468,7 @@ class DatabaseService {
   }
 }
 
-// ENHANCED GSTIN Service
-class GstinService {
-  static async fetchGstinData(gstin) {
-    try {
-      LoadingService.show('Fetching GSTIN data...');
-      
-      const mockData = await this.getMockGstinData(gstin);
-      if (mockData.success) {
-        LoadingService.hide();
-        return mockData;
-      }
-
-      await Utils.delay(1500);
-
-      const stateCode = gstin.substring(0, 2);
-      const stateMapping = {
-        '01': { name: 'JAMMU AND KASHMIR' }, '02': { name: 'HIMACHAL PRADESH' },
-        '03': { name: 'PUNJAB' }, '04': { name: 'CHANDIGARH' },
-        '24': { name: 'GUJARAT' }, '27': { name: 'MAHARASHTRA' },
-        '33': { name: 'TAMIL NADU' }, '29': { name: 'KARNATAKA' }
-      };
-
-      LoadingService.hide();
-
-      return {
-        success: true,
-        data: {
-          legal_name: 'SAMPLE COMPANY PRIVATE LIMITED',
-          trade_name: 'Sample Company',
-          address: 'SAMPLE ADDRESS LINE 1, SAMPLE AREA',
-          city: 'SAMPLE CITY',
-          state: stateMapping[stateCode]?.name || 'UNKNOWN STATE',
-          pincode: '000000',
-          state_code: stateCode
-        }
-      };
-
-    } catch (error) {
-      LoadingService.hide();
-      return {
-        success: false,
-        error: 'Failed to fetch GSTIN data. Please try again.'
-      };
-    }
-  }
-
-  static async getMockGstinData(gstin) {
-    const mockData = {
-      '33AFQFS4393P1Z0': {
-        legal_name: 'SRI VAARI TEX PRIVATE LIMITED',
-        trade_name: 'Sri Vaari Tex',
-        address: 'D.NO. 63/29, NESAVALAR COLONY, 2ND STREET',
-        city: 'TIRUPUR',
-        state: 'TAMIL NADU',
-        pincode: '641602',
-        state_code: '33'
-      },
-      '27BCDPG1234H1Z5': {
-        legal_name: 'GOLDEN TEXTILES PRIVATE LIMITED',
-        trade_name: 'Golden Textiles',
-        address: 'SHOP 15, TEXTILE MARKET',
-        city: 'MUMBAI',
-        state: 'MAHARASHTRA',
-        pincode: '400001',
-        state_code: '27'
-      }
-    };
-
-    if (mockData[gstin]) {
-      return { success: true, data: mockData[gstin] };
-    }
-
-    return { success: false };
-  }
-}
+// GstinService removed — GSTIN fetching is now handled by CustomerController.fetchGstinData() via backend API
 
 // ENHANCED Invoice Service with working calculations
 class InvoiceService {
@@ -1295,48 +1221,7 @@ class BackupService {
       NotificationService.error('Data backup failed.');
     }
   }
-  static async importData(file) {
-    if (!file) {
-      NotificationService.error('Please select a backup file.');
-      return;
-    }
-
-    const confirmation = prompt('This will ERASE all current data. This cannot be undone. Type "RESTORE" to confirm.');
-    if (confirmation !== 'RESTORE') {
-      NotificationService.info('Restore operation cancelled.');
-      return;
-    }
-
-    LoadingService.show('Restoring data...');
-    try {
-      const fileContent = await file.text();
-      const backupData = JSON.parse(fileContent);
-
-      if (!backupData.data || !backupData.version) {
-        throw new Error('Invalid backup file format.');
-      }
-
-      await db.transaction('rw', db.tables, async () => {
-        for (const table of db.tables) {
-          await table.clear();
-        }
-        for (const tableName of Object.keys(backupData.data)) {
-          if (db[tableName]) {
-            await db[tableName].bulkAdd(backupData.data[tableName]);
-          }
-        }
-      });
-      
-      LoadingService.hide();
-      NotificationService.success('Restore successful! The application will now reload.');
-      setTimeout(() => window.location.reload(), 2000);
-
-    } catch (error) {
-      LoadingService.hide();
-      console.error('Restore failed:', error);
-      NotificationService.error('Restore failed. Please check the file and try again.');
-    }
-  }
+  // importData() removed — use performRestore() instead (was a duplicate)
   static async performRestore(file) {
     LoadingService.show('Restoring data...');
     try {
@@ -1655,7 +1540,6 @@ class App {
       this.setupNetworkDetection();
 
       await OnboardingController.init();
-      await this.showPage('dashboard');
 
       BackupController.init();
       PaymentController.init(); 
@@ -1691,166 +1575,6 @@ class App {
       await this.showPage('dashboard');
     }
   }
-
-  // FIXED: Event listeners setup with proper error handling
-  /*static setupEventListeners() {
-    console.log('Setting up global event listeners...');
-    
-    try {
-      // Navigation
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', async (e) => {
-          e.preventDefault();
-          const page = item.getAttribute('data-page');
-          if (page) {
-            await this.showPage(page);
-          }
-        });
-      });
-
-      // Quick actions
-      const quickCreateInvoice = document.getElementById('quick-create-invoice');
-      const quickAddCustomer = document.getElementById('quick-add-customer');
-      const quickAddProduct = document.getElementById('quick-add-product');
-
-      if (quickCreateInvoice) {
-        quickCreateInvoice.addEventListener('click', () => InvoiceController.openModal());
-      }
-
-      if (quickAddCustomer) {
-        quickAddCustomer.addEventListener('click', () => CustomerController.openModal());
-      }
-
-      if (quickAddProduct) {
-        quickAddProduct.addEventListener('click', () => ProductController.openModal());
-      }
-
-      // Page action buttons
-      
-      // Modal close buttons
-      document.querySelectorAll('.modal-close, [data-dismiss="modal"]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          const modal = btn.closest('.modal');
-          if (modal) modal.classList.add('hidden');
-        });
-      });
-
-      // Form submissions
-      
-
-      // Close modals when clicking outside
-      document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) {
-            modal.classList.add('hidden');
-          }
-        });
-      });
-
-      // Mobile menu toggle
-      const menuToggle = document.getElementById('menu-toggle');
-      const sidebar = document.getElementById('sidebar');
-      
-      if (menuToggle && sidebar) {
-        menuToggle.addEventListener('click', () => {
-          sidebar.classList.toggle('open');
-        });
-      }
-
-      // FIXED: Quick actions with proper modal opening
-      const quickInvoiceBtn = document.getElementById('quick-invoice');
-      if (quickInvoiceBtn) {
-        quickInvoiceBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          InvoiceController.openModal();
-        });
-      }
-
-      const addCustomerBtn = document.getElementById('add-customer-btn');
-      if (addCustomerBtn) {
-        addCustomerBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          CustomerController.openModal();
-        });
-      }
-
-      const addProductBtn = document.getElementById('add-product-btn');
-      if (addProductBtn) {
-        addProductBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          ProductController.openModal();
-        });
-      }
-
-      const createInvoiceBtn = document.getElementById('create-invoice-btn');
-      if (createInvoiceBtn) {
-        createInvoiceBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          InvoiceController.openModal();
-        });
-      }
-
-      // FIXED: Modal close buttons
-      document.querySelectorAll('.modal-close, [data-dismiss="modal"]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          const modal = btn.closest('.modal');
-          if (modal) modal.classList.add('hidden');
-        });
-      });
-
-      // FIXED: Form submissions
-      const customerForm = document.getElementById('customer-form');
-      if (customerForm) {
-        customerForm.addEventListener('submit', CustomerController.saveCustomer.bind(CustomerController));
-      }
-
-      const productForm = document.getElementById('product-form');
-      if (productForm) {
-        productForm.addEventListener('submit', ProductController.saveProduct.bind(ProductController));
-      }
-
-      const invoiceForm = document.getElementById('invoice-form');
-      if (invoiceForm) {
-        invoiceForm.addEventListener('submit', InvoiceController.saveInvoice.bind(InvoiceController));
-      }
-
-      // FIXED: GSTIN fetch button
-      const fetchGstinBtn = document.getElementById('fetch-gstin-data');
-      if (fetchGstinBtn) {
-        fetchGstinBtn.addEventListener('click',  () => CustomerController.fetchGstinData());
-      }
-
-      // FIXED: Settings save
-      const saveSettingsBtn = document.getElementById('save-settings');
-      if (saveSettingsBtn) {
-        saveSettingsBtn.addEventListener('click', SettingsController.saveSettings);
-      }
-
-      // Close modals when clicking outside
-      document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) {
-            modal.classList.add('hidden');
-          }
-        });
-      });
-
-      // Keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          document.querySelectorAll('.modal:not(.hidden)').forEach(modal => {
-            modal.classList.add('hidden');
-          });
-        }
-      });
-
-    } catch (error) {
-      console.error('Failed to setup event listeners:', error);
-    }
-  }
-  */
 
   static setupEventListeners() {
     console.log('Setting up global event listeners...');
@@ -2134,9 +1858,30 @@ class CustomerController {
       const tbody = document.getElementById('customers-tbody');
       if (!tbody) return;
 
+      // Pre-compute outstanding amounts and last transaction dates for all customers
+      const invoices = await db.invoices.toArray();
+      const customerStats = {};
+      for (const inv of invoices) {
+        if (!customerStats[inv.customer_id]) {
+          customerStats[inv.customer_id] = { outstanding: 0, lastDate: null };
+        }
+        const stats = customerStats[inv.customer_id];
+        if (inv.payment_status !== 'cancelled') {
+          stats.outstanding += (inv.total_amount || 0) - (inv.amount_paid || 0);
+        }
+        const invDate = inv.date ? new Date(inv.date) : null;
+        if (invDate && (!stats.lastDate || invDate > stats.lastDate)) {
+          stats.lastDate = invDate;
+        }
+      }
+
       let html = '';
       for (const customer of customers) {
         if (!searchTerm || customer.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+          const stats = customerStats[customer.id] || { outstanding: 0, lastDate: null };
+          const outstandingDisplay = Utils.formatCurrency(Math.max(0, stats.outstanding));
+          const lastTxDisplay = stats.lastDate ? Utils.formatDate(stats.lastDate) : 'Never';
+
           html += `
             <tr>
               <td>
@@ -2150,8 +1895,8 @@ class CustomerController {
                 <div class="item-meta">${customer.email || 'No email'}</div>
               </td>
               <td>${customer.gstin || 'Unregistered'}</td>
-              <td class="currency">₹0</td>
-              <td>Never</td>
+              <td class="currency">${outstandingDisplay}</td>
+              <td>${lastTxDisplay}</td>
               <td>
                 <div class="action-buttons">
                   <button class="btn btn--secondary btn--sm btn-icon" onclick="CustomerController.editCustomer(${customer.id})" title="Edit">
@@ -2188,9 +1933,19 @@ class CustomerController {
     }
   }
 
+  // AbortController to prevent event listener leaks across modal re-opens
+  static _modalAbortController = null;
+
   static async openModal(customerId = null) {
     const modal = document.getElementById('customer-modal');
     if (!modal) return;
+
+    // Abort any listeners from a previous modal opening
+    if (this._modalAbortController) {
+      this._modalAbortController.abort();
+    }
+    this._modalAbortController = new AbortController();
+    const signal = this._modalAbortController.signal;
 
     // Reset and show the modal
     document.getElementById('customer-form').reset();
@@ -2204,37 +1959,25 @@ class CustomerController {
     const gstinInput = document.getElementById('customer-gstin');
     const captchaSection = document.getElementById('captcha-section');
     
-    // FIXED: The handler now correctly uses `event.currentTarget`
     const gstinInputHandler = (event) => {
-      // `event.currentTarget` always refers to the element the listener is attached to
       if (event.currentTarget.value.length > 0) {
         if (captchaSection.classList.contains('hidden')) {
           captchaSection.classList.remove('hidden');
-          this._fetchAndDisplayCaptcha(); // Fetch captcha only when it becomes visible
+          this._fetchAndDisplayCaptcha();
         }
       } else {
         captchaSection.classList.add('hidden');
       }
     };
-    
-    // Use a fresh listener to avoid duplicates from previous modal openings
-    //const newGstinInput = gstinInput.cloneNode(true);
-    //gstinInput.parentNode.replaceChild(newGstinInput, gstinInput);
-    //newGstinInput.addEventListener('input', gstinInputHandler);
 
     // Load data if we are editing, otherwise set title for adding
     if (customerId) {
       document.getElementById('customer-modal-title').textContent = 'Edit Customer';
       try {
-      
-
         const customer = await db.customers.get(customerId);
 
-         // ... (loading customer data) ...
         document.getElementById('customer-name').value = customer.name || '';
-        
         gstinInput.value = customer.gstin || '';
-        //document.getElementById('customer-gstin').value = customer.gstin || '';
         document.getElementById('customer-aadhar').value = customer.aadhar || '';
         document.getElementById('customer-phone').value = customer.phone || '';
         document.getElementById('customer-email').value = customer.email || '';
@@ -2243,25 +1986,18 @@ class CustomerController {
         document.getElementById('customer-state').value = customer.state_code || '';
         document.getElementById('customer-pincode').value = customer.pincode || '';
 
-        //const currentGstinInput = document.getElementById('customer-gstin');
-        //currentGstinInput.value = customer.gstin || '';
-
-        // Manually dispatch an 'input' event to trigger the captcha logic
-        //currentGstinInput.dispatchEvent(new Event('input'));
-
         appState.editingRecord = customer;
-
-        gstinInput.addEventListener('input', gstinInputHandler);
-
       } catch (error) {
         console.error('Failed to load customer:', error);
       }
     } else {
       document.getElementById('customer-modal-title').textContent = 'Add Customer';
       appState.editingRecord = null;
-      gstinInput.addEventListener('input', gstinInputHandler);
     }
-    document.getElementById('refresh-captcha-btn').addEventListener('click', () => this._fetchAndDisplayCaptcha());
+
+    // FIX: Use { signal } so listeners are auto-removed when modal reopens
+    gstinInput.addEventListener('input', gstinInputHandler, { signal });
+    document.getElementById('refresh-captcha-btn').addEventListener('click', () => this._fetchAndDisplayCaptcha(), { signal });
   }
 
   static async fetchGstinData() {
@@ -2808,6 +2544,8 @@ class InvoiceController {
           for (const item of invoice.items) {
             await db.products.where('id').equals(item.product_id).modify(product => {
               product.stock_quantity += item.quantity;
+              // FIX: Also restore rolls (was missing, unlike cancelInvoice)
+              product.stock_rolls = (product.stock_rolls || 0) + (item.rolls || 0);
             });
             await db.inventory_transactions.add({
               product_id: item.product_id,
@@ -2833,90 +2571,7 @@ class InvoiceController {
     }
   }
 
-  // FIXED: Working event listeners for filters
-  static setupEventListeners() {
-    const searchInput = document.getElementById('invoice-search');
-    const statusFilter = document.getElementById('status-filter');
-    const dateFromFilter = document.getElementById('date-from');
-    const dateToFilter = document.getElementById('date-to');
-    const clearFiltersBtn = document.getElementById('clear-filters');
-
-    const applyFilters = () => {
-      const filters = {
-        searchTerm: searchInput?.value.trim() || '',
-        status: statusFilter?.value || '',
-        dateFrom: dateFromFilter?.value || '',
-        dateTo: dateToFilter?.value || ''
-      };
-      
-      this.loadInvoices(filters);
-    };
-
-    if (searchInput) {
-      searchInput.addEventListener('input', Utils.debounce(applyFilters, 300));
-    }
-
-    if (statusFilter) {
-      statusFilter.addEventListener('change', applyFilters);
-    }
-
-    if (dateFromFilter) {
-      dateFromFilter.addEventListener('change', applyFilters);
-    }
-
-    if (dateToFilter) {
-      dateToFilter.addEventListener('change', applyFilters);
-    }
-
-    if (clearFiltersBtn) {
-      clearFiltersBtn.addEventListener('click', () => {
-        if (searchInput) searchInput.value = '';
-        if (statusFilter) statusFilter.value = '';
-        if (dateFromFilter) dateFromFilter.value = '';
-        if (dateToFilter) dateToFilter.value = '';
-        this.loadInvoices();
-      });
-    }
-
-    const tbody = document.getElementById('invoices-tbody');
-    if (tbody) {
-      tbody.addEventListener('click', (e) => {
-        const menuBtn = e.target.closest('.action-menu-btn');
-        const menuItem = e.target.closest('.action-menu-item');
-        
-        // Handle opening/closing the menu
-        if (menuBtn) {
-          e.preventDefault();
-          const menu = menuBtn.nextElementSibling;
-          // Close other menus
-          document.querySelectorAll('.action-menu-content.show').forEach(m => {
-            if (m !== menu) m.classList.remove('show');
-          });
-          menu.classList.toggle('show');
-          return;
-        }
-
-        // Handle clicking an item inside the menu
-        if (menuItem) {
-          e.preventDefault();
-          const invoiceId = parseInt(menuItem.dataset.invoiceId);
-          const action = menuItem.dataset.action;
-
-          if (action === 'add-payment') PaymentController.openPaymentModal(invoiceId);
-          if (action === 'download') this.downloadInvoice(invoiceId);
-          
-          menuItem.closest('.action-menu-content').classList.remove('show');
-        }
-      });
-      
-      // Close menus if clicking elsewhere
-      window.addEventListener('click', (e) => {
-        if (!e.target.closest('.action-menu')) {
-          document.querySelectorAll('.action-menu-content.show').forEach(m => m.classList.remove('show'));
-        }
-      });
-    }
-  }
+  // InvoiceController.setupEventListeners() removed — logic now lives in App.setupEventListeners()
 
   // FIXED: Working invoice modal with calculations
   static async openModal() {
@@ -3250,9 +2905,9 @@ static calculateTotals() {
 
         
         
-        const amount = Utils.calculateAmount(quantity, rate);
         const netAmount = lineTotal - itemDiscountAmount;
-        const gstAmount = Utils.calculateGST(amount, product.gst_rate);
+        // FIX: Calculate GST on net amount (after discount), not gross amount
+        const gstAmount = Utils.calculateGST(netAmount, product.gst_rate);
 
         items.push({
           product_id: productId,
@@ -3567,51 +3222,6 @@ class PaymentController {
     }
   }
 }
-// SIMPLIFIED Controllers for other pages
-/*
-class InventoryController {
-  static async loadPage() {
-    try {
-      const products = await db.products.toArray();
-      
-      document.getElementById('total-products').textContent = products.length;
-      document.getElementById('low-stock-items').textContent = products.filter(p => p.stock_quantity <= p.min_stock).length;
-      document.getElementById('out-of-stock').textContent = products.filter(p => p.stock_quantity <= 0).length;
-      document.getElementById('inventory-value').textContent = Utils.formatCurrency(
-        products.reduce((sum, p) => sum + (p.stock_quantity * (p.rate || 0)), 0)
-      );
-      
-      const tbody = document.getElementById('inventory-tbody');
-      if (tbody) {
-        let html = '';
-        products.forEach(product => {
-          const stockValue = product.stock_quantity * (product.rate || 0);
-          const stockStatus = product.stock_quantity <= 0 ? 'Out of Stock' : 
-                             product.stock_quantity <= product.min_stock ? 'Low Stock' : 'In Stock';
-          const statusClass = product.stock_quantity <= 0 ? 'status--error' : 
-                             product.stock_quantity <= product.min_stock ? 'status--warning' : 'status--success';
-
-          html += `
-            <tr>
-              <td>${Utils.sanitizeHtml(product.name)}</td>
-              <td>${product.stock_quantity} ${product.unit || 'PCS'}</td>
-              <td>${product.min_stock} ${product.unit || 'PCS'}</td>
-              <td class="currency">${Utils.formatCurrency(product.rate || 0)}</td>
-              <td class="currency">${Utils.formatCurrency(stockValue)}</td>
-              <td>${Utils.formatDate(product.created_at)}</td>
-              <td><span class="status ${statusClass}">${stockStatus}</span></td>
-            </tr>
-          `;
-        });
-        tbody.innerHTML = html || '<tr><td colspan="7" class="text-center">No products found</td></tr>';
-      }
-    } catch (error) {
-      console.error('Failed to load inventory:', error);
-    }
-  }
-}
-*/
-
 // In app.js
 class InventoryController {
   static async loadPage() {
